@@ -1,14 +1,25 @@
 import nodemailer from "nodemailer";
-import dotenv from "dotenv";
+import { createOAuthClient } from "./google.config.js";
+import "./env.js";
 
-dotenv.config();
+export const createTransporter = async ({ email, refreshToken }) => {
+  const oauth2Client = createOAuthClient({ refreshToken });
 
-const transporter = nodemailer.createTransport({
-  service: "gmail",
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+  const accessTokenResponse = await oauth2Client.getAccessToken();
+  const accessToken =
+    typeof accessTokenResponse === "object"
+      ? accessTokenResponse.token
+      : accessTokenResponse;
 
-export default transporter;
+  return nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+      type: "OAuth2",
+      user: email,
+      clientId: process.env.GOOGLE_CLIENT_ID,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
+      refreshToken,
+      accessToken,
+    },
+  });
+};

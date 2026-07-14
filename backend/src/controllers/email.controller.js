@@ -5,6 +5,7 @@ export const sendEmailController = async (req, res) => {
     const { to, subject, message } = req.body;
 
     const info = await sendEmail({
+      user: req.user,
       to,
       subject,
       message,
