@@ -45,13 +45,27 @@ export const upsertUserByGoogleId = async ({
   });
 };
 
+// 
+
+const publicUserSelect = {
+  id: true,
+  name: true,
+  email: true,
+  picture: true,
+  createdAt: true,
+  updatedAt: true,
+};
+
 export const getUserByEmail = async (email) => {
   return prisma.user.findUnique({
     where: {
       email,
     },
+    select: publicUserSelect,
   });
 };
+
+// 
 
 export const getUserById = async (id) => {
   return prisma.user.findUnique({
