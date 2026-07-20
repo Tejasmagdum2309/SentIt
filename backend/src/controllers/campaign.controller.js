@@ -1,6 +1,7 @@
 import {
   createCampaign,
   getCampaignsByUserId,
+  parseCampaignUploadFile,
   updateCampaignById,
 } from "../services/campaign.service.js";
 
@@ -54,14 +55,16 @@ export const createCampaignController = async (req, res) => {
 
 export const updateCampaignController = async (req, res) => {
   try {
-    const { id } = req.params;
-    const { campaignName, campaignDescription } = req.body;
+    const { campaignId : id } = req.params;
+    const { campaignName, campaignDescription , emailSubject , emailBody } = req.body;
 
     const campaign = await updateCampaignById({
       id,
       userId: req.user.id,
       campaignName,
       campaignDescription,
+      emailSubject,
+      emailBody
     });
 
     if (!campaign) {
@@ -77,7 +80,38 @@ export const updateCampaignController = async (req, res) => {
       data: campaign,
     });
   } catch (error) {
-    return res.status(500).json({
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+
+export const uploadCampaignFileController = async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+
+    const parsedFile = await parseCampaignUploadFile({
+      campaignId,
+      userId: req.user.id,
+      file: req.file,
+    });
+
+    if (!parsedFile) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "File uploaded Successfully , View The Next page for uploaded email.",
+      data: parsedFile,
+    });
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
       success: false,
       message: error.message,
     });

@@ -22,17 +22,49 @@ model User {
   updatedAt    DateTime @updatedAt
 
   campaign     Campaign[]
+  campaignEmails CampaignEmail[]
 }
 
 model Campaign {
   id                  String   @id @default(cuid())
   campaignName        String
   campaignDescription String?
+  
+  emailSubject        String   @default("")
+  emailBody           String   @db.Text @default("")
 
   userId              String
   user                User      @relation(fields: [userId],references: [id],onDelete: Cascade)
   
   createdAt           DateTime @default(now())
   updatedAt           DateTime @updatedAt
+  emails              CampaignEmail[]
 
+}
+
+enum CampaignEmailStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+model CampaignEmail {
+id String @id @default(cuid())
+status CampaignEmailStatus @default(PENDING)
+
+recipientEmail  String
+variables Json
+
+messageId String?
+sentAt DateTime?
+errorMessage String?
+
+userId String
+campaignId String
+
+user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+campaign Campaign @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+createdAt DateTime @default(now())
+updatedAt DateTime @updatedAt
 }
