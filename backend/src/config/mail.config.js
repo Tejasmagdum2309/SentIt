@@ -6,6 +6,7 @@ export const createTransporter = async ({ email, refreshToken }) => {
   const oauth2Client = createOAuthClient({ refreshToken });
 
   const accessTokenResponse = await oauth2Client.getAccessToken();
+
   const accessToken =
     typeof accessTokenResponse === "object"
       ? accessTokenResponse.token

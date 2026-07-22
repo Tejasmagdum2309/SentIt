@@ -1,9 +1,18 @@
 import {
   createCampaign,
   getCampaignsByUserId,
+  getCampaignById,
   parseCampaignUploadFile,
   updateCampaignById,
+  getCampaignEmails,
+  getEmailById
 } from "../services/campaign.service.js";
+
+import { getUserByEmailWithRefreshToken } from "../services/user.service.js";
+
+import {sendCampaignEmailsInBackground} from "../services/email.service.js";
+
+import {sendEmail} from "../services/email.service.js";
 
 export const getCampaignsController = async (req, res) => {
   try {
@@ -24,7 +33,6 @@ export const getCampaignsController = async (req, res) => {
 
 export const createCampaignController = async (req, res) => {
   try {
-    console.log(req.body);
     const { campaignName, campaignDescription } = req.body;
 
     if (!campaignName) {
@@ -117,3 +125,150 @@ export const uploadCampaignFileController = async (req, res) => {
     });
   }
 };
+
+export const getCampaignEmailsController = async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+
+  
+      const emails = await getCampaignEmails({
+        campaignId,
+        userId: req.user.id,
+      });
+  
+      if (!emails) {
+        return res.status(404).json({
+          success: false,
+          message: "Campaign not found",
+        });
+      }
+  
+      return res.status(200).json({
+        success: true,
+        message: "Emails fetched successfully",
+        data: emails,
+      });
+    }
+    catch (error) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+}
+
+export const getCampaignEmailController = async (req, res) => {
+    try {
+      const { campaignI , emailId} = req.params;
+
+  
+      const email = await getEmailById({
+        emailId,
+        userId: req.user.id,
+      });
+
+  
+      if (!email) {
+        return res.status(404).json({
+          success: false,
+          message: "Email not found",
+        });
+      }
+
+      const user = await getUserByEmailWithRefreshToken(req.user.email);
+
+
+      await sendEmail({
+        user: user,
+        to: email.recipientEmail,
+        subject: "Test",
+        message: "Test Message",
+      });
+  
+      // const emails = await getCampaignEmails({
+      //   campaignId : campaignI,
+      //   userId: req.user.id,
+      // });
+  
+      // if (!emails) {
+      //   return res.status(404).json({
+      //     success: false,
+      //     message: "Campaign not found",
+      //   });
+      // }
+  
+      return res.status(200).json({
+        success: true,
+        message: "Emails fetched successfully",
+        data: emails,
+      });
+    }
+    catch (error) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+}
+
+export const sendCampaignEmailController = async (req, res) => {
+    try {
+      const { campaignId } = req.params;
+
+
+      const campaign = await getCampaignById({
+        id : campaignId,
+      });
+  
+      if (!campaign) {
+        return res.status(404).json({
+          success: false,
+          message: "Campaign not found",
+        });
+      }
+
+      const emails = await getCampaignEmails({
+        campaignId : campaign.id,
+        userId: req.user.id,
+      });
+  
+      if (!emails) {
+        return res.status(404).json({
+          success: false,
+          message: "No emails found",
+        });
+      }
+
+     const user = await getUserByEmailWithRefreshToken(req.user.email);
+
+      if (!user) {
+        return res.status(404).json({
+          success: false,
+          message: "User not found",
+        });
+      }
+      
+        // BackGround Process
+     sendCampaignEmailsInBackground({
+        campaign,
+        emails,
+        user,
+      }).catch((err) => {
+  console.error("Background email error:", err);
+});
+
+
+
+      return res.status(200).json({
+        success: true,
+        message: "Emails Seding in Progress... , Check after few seconds.",
+      });
+
+    }
+    catch (error) {
+      return res.status(error.statusCode || 500).json({
+        success: false,
+        message: error.message,
+      });
+    }
+}

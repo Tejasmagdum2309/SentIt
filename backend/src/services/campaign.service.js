@@ -26,6 +26,15 @@ export const getCampaignsByUserId = async (userId) => {
   });
 };
 
+export const getCampaignById = async ({ id }) => {
+  return prisma.campaign.findUnique({
+    where: {
+      id,
+    },
+    select: publicCampaignSelect,
+  });
+};
+
 export const createCampaign = async ({
   campaignName,
   campaignDescription,
@@ -71,6 +80,48 @@ export const updateCampaignById = async ({
       ...(emailBody !== undefined ? { emailBody } : {}),
     },
     select: publicCampaignSelect,
+  });
+};
+
+export const getCampaignEmails = async ({ campaignId, userId }) => {
+  return prisma.campaignEmail.findMany({
+    where: {
+      campaignId,
+      userId,
+    },
+    omit: {
+      userId : true,
+      campaignId : true
+    }
+  });
+};
+
+export const getEmailById = async ({ emailId, userId }) => {
+  return prisma.campaignEmail.findFirst({
+    where: {
+      id: emailId,
+      userId,
+    },
+  });
+};
+
+export const updateCampaignEmailById = async ({
+  id,
+  status,
+  messageId,
+  sentAt,
+  errorMessage,
+}) => {
+  return prisma.campaignEmail.update({
+    where: {
+      id,
+    },
+    data: {
+      ...(status !== undefined && { status }),
+      ...(messageId !== undefined && { messageId }),
+      ...(sentAt !== undefined && { sentAt }),
+      ...(errorMessage !== undefined && { errorMessage }),
+    },
   });
 };
 
@@ -155,12 +206,33 @@ if (missingColumns.length > 0) {
     `Missing required column(s): ${missingColumns.join(", ")}`
   );
 }
-
+ 
+ await createManyCampaignEmails({
+  campaignId : campaign.id,
+  userId,
+  rows,
+  });
 
   return {
-    campaignId,
     rowCount: rows.length,
     rows,
     sheetName,
   };
+};
+
+export const createManyCampaignEmails = async ({
+  campaignId,
+  userId,
+  rows,
+}) => {
+  const campaignEmails = rows.map((row) => ({
+    campaignId,
+    userId,
+    recipientEmail: row.email,
+    variables: row,
+  }));
+
+  return prisma.campaignEmail.createMany({
+    data: campaignEmails,
+  });
 };

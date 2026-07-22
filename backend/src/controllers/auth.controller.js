@@ -13,10 +13,9 @@ export const getGoogleAuthUrlController = (req, res) => {
       access_type: "offline",
       prompt: "consent",
       redirect_uri: redirectUri,
-      scope: ["openid", "profile", "email"],
+      scope: ["openid", "profile", "email","https://mail.google.com/"],
     });
     
-    console.log("Google auth URL:", authUrl);
     return res.redirect(authUrl);
   } catch (error) {
     console.error(error);
@@ -49,7 +48,6 @@ export const googleCallbackController = async (req, res) => {
 
     const oauth2Client = createOAuthClient();
     const { tokens } = await oauth2Client.getToken(code);
-    console.log("Google tokens:", tokens);
 
     oauth2Client.setCredentials(tokens);
 
@@ -59,7 +57,6 @@ export const googleCallbackController = async (req, res) => {
     });
 
     const { data } = await oauth2.userinfo.get();
-    console.log("Google user info:", data);
 
     if (!data.id || !data.email) {
       return res.status(400).json({
