@@ -2,6 +2,7 @@ import { createTransporter } from "../config/mail.config.js";
 import { decryptRefreshToken } from "../config/token-encryption.js";
 import {updateCampaignEmailById} from "../services/campaign.service.js";
 import { createHttpError } from "../config/http-error.js";
+import {updateCampaignById} from "../services/campaign.service.js";
 
 export const sendEmail = async ({ user, to, subject, message }) => {
   const refreshToken = decryptRefreshToken(user?.refreshToken);
@@ -35,24 +36,27 @@ export const sendCampaignEmailsInBackground = async ({
   emails,
   user,
 }) => {
+
   console.log(`Starting sending mails ------------------------- for campaign ${campaign.id}`);
   for (const campaignEmail of emails) {
     try {
       let body = campaign.emailBody;
-      console.log('body');
       for (const [key, value] of Object.entries(campaignEmail.variables)) {
         body = body.replaceAll(`{{${key}}}`, value ?? "");
       }
 
-
-
+      // Remove in Fucture -- Tejas
+      if(campaignEmail.status !== "PENDING"){
+        continue;
+      }
       const info = await sendEmail({
         user,
         to: campaignEmail.recipientEmail,
         subject: campaign.emailSubject,
         message: body,
       });
-      console.log('info', info);
+
+      console.log(`Email sent to ${campaignEmail.recipientEmail}`);
 
       await updateCampaignEmailById({
         id: campaignEmail.id,
@@ -61,7 +65,7 @@ export const sendCampaignEmailsInBackground = async ({
         sentAt: new Date(),
       });
     } catch (error) {
-      console.log("error", error);
+      console.log("error sending email", error);
       await updateCampaignEmailById({
         id: campaignEmail.id,
         status: "FAILED",
@@ -69,4 +73,12 @@ export const sendCampaignEmailsInBackground = async ({
       })
     }
   }
+
+  console.log(`Finished sending mails ------------------------- for campaign ${campaign.id}`);
+
+  await updateCampaignById({
+    id: campaign.id,
+    userId: user.id,
+    campaignStatus: "SENT",
+  });
 };

@@ -5,7 +5,8 @@ import {
   parseCampaignUploadFile,
   updateCampaignById,
   getCampaignEmails,
-  getEmailById
+  getEmailById,
+  getSentCampaignCount
 } from "../services/campaign.service.js";
 
 import { getUserByEmailWithRefreshToken } from "../services/user.service.js";
@@ -99,12 +100,20 @@ export const updateCampaignController = async (req, res) => {
 export const uploadCampaignFileController = async (req, res) => {
   try {
     const { campaignId } = req.params;
-
+    // Issue will occuer here will fix in next release --- Tejas
     const parsedFile = await parseCampaignUploadFile({
       campaignId,
       userId: req.user.id,
       file: req.file,
     });
+
+    if(!parsedFile.success){
+      return res.status(400).json({
+        success: false,
+        message: parsedFile.message,
+        data: parsedFile?.data || null,
+      });
+    }
 
     if (!parsedFile) {
       return res.status(404).json({
@@ -116,7 +125,7 @@ export const uploadCampaignFileController = async (req, res) => {
     return res.status(200).json({
       success: true,
       message: "File uploaded Successfully , View The Next page for uploaded email.",
-      data: parsedFile,
+      data: parsedFile.data,
     });
   } catch (error) {
     return res.status(error.statusCode || 500).json({
@@ -216,10 +225,10 @@ export const sendCampaignEmailController = async (req, res) => {
       const { campaignId } = req.params;
 
 
-      const campaign = await getCampaignById({
+       const campaign = await getCampaignById({
         id : campaignId,
       });
-  
+
       if (!campaign) {
         return res.status(404).json({
           success: false,
@@ -227,12 +236,34 @@ export const sendCampaignEmailController = async (req, res) => {
         });
       }
 
+      if(campaign.campaignStatus === "SENT"){
+        return res.status(404).json({
+          success: false,
+          message: "Campaign already sent",
+        });
+      }
+
+      // Chk if from yesterdays current date to current time did we sent alredt 2 campaigns...
+      const yesterday = new Date(new Date - (24 * 60 * 60 * 1000));
+
+      const sentCampaignsCount = await getSentCampaignCount({ id: req.user.id, since: yesterday });
+     
+      if (sentCampaignsCount >= 2) {
+        return res.status(429).json({
+          success: false,
+          message: "You have already sent 2 campaigns in last 24 hours...",
+        });
+      }
+
+      resssds.json()
+
       const emails = await getCampaignEmails({
         campaignId : campaign.id,
         userId: req.user.id,
       });
+
   
-      if (!emails) {
+      if (!emails || emails?.length === 0) {
         return res.status(404).json({
           success: false,
           message: "No emails found",

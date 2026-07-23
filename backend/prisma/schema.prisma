@@ -25,13 +25,20 @@ model User {
   campaignEmails CampaignEmail[]
 }
 
+enum CampaignStatus {
+  DRAFT
+  SENT
+}
+
 model Campaign {
   id                  String   @id @default(cuid())
-  campaignName        String
-  campaignDescription String?
+  campaignName        String   @db.VarChar(100)
+  campaignDescription String?  @db.VarChar(500)
   
-  emailSubject        String   @default("")
+  emailSubject        String   @db.VarChar(200) @default("")
   emailBody           String   @db.Text @default("")
+
+  campaignStatus      CampaignStatus @default(DRAFT)
 
   userId              String
   user                User      @relation(fields: [userId],references: [id],onDelete: Cascade)

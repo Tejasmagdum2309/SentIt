@@ -3,10 +3,13 @@ import { createHttpError } from "../config/http-error.js";
 import path from "node:path";
 import xlsx from "xlsx";
 
+import { isValidEmail , validateValuesInSheet , validateCellLength } from "../utils/email.util.js";
+
 const publicCampaignSelect = {
   id: true,
   campaignName: true,
   campaignDescription: true,
+  campaignStatus: true,
   emailSubject: true,
   emailBody: true,
   userId: true,
@@ -35,6 +38,18 @@ export const getCampaignById = async ({ id }) => {
   });
 };
 
+export const getSentCampaignCount = ({ id, since }) => {
+  return prisma.campaign.count({
+    where: {
+      userId: id,
+      campaignStatus: "SENT",
+      updatedAt: {
+        gte: since,
+      },
+    },
+  });
+};
+
 export const createCampaign = async ({
   campaignName,
   campaignDescription,
@@ -57,6 +72,7 @@ export const updateCampaignById = async ({
   campaignDescription,
   emailSubject,
   emailBody,
+  campaignStatus,
 }) => {
   const existingCampaign = await prisma.campaign.findFirst({
     where: {
@@ -78,6 +94,7 @@ export const updateCampaignById = async ({
       ...(campaignDescription !== undefined ? { campaignDescription } : {}),
       ...(emailSubject !== undefined ? { emailSubject } : {}),
       ...(emailBody !== undefined ? { emailBody } : {}),
+      ...(campaignStatus !== undefined ? { campaignStatus } : {}),
     },
     select: publicCampaignSelect,
   });
@@ -156,7 +173,7 @@ export const parseCampaignUploadFile = async ({ campaignId, userId, file }) => {
   });
 
   if (!campaign) {
-    return null;
+    throw createHttpError(404, "Campaign not found");
   }
 
   const workbook = xlsx.read(file.buffer, { type: "buffer" });
@@ -180,6 +197,31 @@ export const parseCampaignUploadFile = async ({ campaignId, userId, file }) => {
     throw createHttpError(400, "Uploaded file must include an email column");
   }
 
+  //Check all rows is email valid:
+  const { all, valid, invalid, summary } = validateValuesInSheet(rows, "email", isValidEmail);
+
+  if (invalid.length > 0) {
+    return {
+    success : false,
+    message : "Uploaded file contains invalid emails",
+    data : {
+      valid,
+      invalid,
+      summary
+    }
+  }
+  };
+
+  const isCellHasValidLength = validateCellLength(rows,200);
+
+  if(!isCellHasValidLength){
+    return {
+      success : false,
+      message : "Uploaded file contains cells with more then 200 characters...",
+      data : null,
+    }
+  }
+
    // Logic chk
     const requiredVariables = [
   ...campaign.emailBody.matchAll(/\{\{(.*?)\}\}/g),
@@ -200,10 +242,21 @@ export const parseCampaignUploadFile = async ({ campaignId, userId, file }) => {
   (column) => !sheetColumns.includes(column)
 );
 
+  const extraColumns = sheetColumns.filter(
+  (column) => !requiredColumns.includes(column)
+);
+
 if (missingColumns.length > 0) {
   throw createHttpError(
     400,
     `Missing required column(s): ${missingColumns.join(", ")}`
+  );
+}
+
+if(extraColumns.length > 0){
+  throw createHttpError(
+    400,
+    `Extra column(s): ${extraColumns.join(", ")}`
   );
 }
  
@@ -214,9 +267,13 @@ if (missingColumns.length > 0) {
   });
 
   return {
+    success : true,
+    message : 'File uploaded Successfully , View The Next page for uploaded email.',
+    data : {
     rowCount: rows.length,
     rows,
     sheetName,
+    }
   };
 };
 
