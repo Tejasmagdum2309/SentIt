@@ -14,8 +14,14 @@ export const getGoogleAuthUrlController = (req, res) => {
       access_type: "offline",
       prompt: "consent",
       redirect_uri: redirectUri,
-      scope: ["openid", "profile", "email","https://mail.google.com/"],
-    });
+      scope: 
+            [ "openid",
+              "profile", 
+              "email", 
+              "https://www.googleapis.com/auth/gmail.send",
+              "https://www.googleapis.com/auth/gmail.readonly",
+            ],
+     });
     
     return res.redirect(authUrl);
   } catch (error) {
