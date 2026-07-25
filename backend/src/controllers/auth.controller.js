@@ -4,6 +4,7 @@ import { createOAuthClient, redirectUri } from "../config/google.config.js";
 import { jwtExpiresIn, jwtSecret } from "../config/jwt.js";
 import { encryptRefreshToken } from "../config/token-encryption.js";
 import { upsertUserByGoogleId } from "../services/user.service.js";
+import "dotenv/config";
 
 export const getGoogleAuthUrlController = (req, res) => {
   try {
@@ -88,15 +89,11 @@ export const googleCallbackController = async (req, res) => {
         expiresIn: jwtExpiresIn,
       }
     );
-
-    return res.status(200).json({
-      success: true,
-      message: "Google sign-in completed successfully",
-      data: {
-        token,
-        user,
-      },
-    });
+    
+    console.log("token",   `${process.env.FRONTEND_URL}/auth/callback?token=${token}`);
+    return res.redirect(
+  `${process.env.FRONTEND_URL}/auth/callback?token=${token}`
+   );
   } catch (error) {
     console.error(error);
 
