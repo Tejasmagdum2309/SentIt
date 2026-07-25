@@ -255,8 +255,6 @@ export const sendCampaignEmailController = async (req, res) => {
         });
       }
 
-      resssds.json()
-
       const emails = await getCampaignEmails({
         campaignId : campaign.id,
         userId: req.user.id,
