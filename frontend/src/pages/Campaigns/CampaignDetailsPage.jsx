@@ -15,10 +15,13 @@ import {
   Typography,
 } from '@mui/material';
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
+import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
+import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import StatusChip from '../../components/common/StatusChip';
 import LoadingButton from '../../components/common/LoadingButton';
+import EditCampaignDialog from '../../components/campaigns/EditCampaignDialog';
 import formatVariables from '../../utils/formatVariables';
 import {
   getApiErrorMessage,
@@ -26,6 +29,7 @@ import {
   getCampaigns,
   sendCampaign,
   sendCampaignEmail,
+  uploadCampaignFile,
 } from '../../api/campaigns';
 
 function CampaignDetailsPage() {
@@ -37,6 +41,9 @@ function CampaignDetailsPage() {
   const [loading, setLoading] = useState(true);
   const [sendingAll, setSendingAll] = useState(false);
   const [sendingEmailId, setSendingEmailId] = useState(null);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [uploading, setUploading] = useState(false);
+  const [editOpen, setEditOpen] = useState(false);
 
   const loadData = async () => {
     try {
@@ -59,6 +66,63 @@ function CampaignDetailsPage() {
   useEffect(() => {
     loadData();
   }, [campaignId]);
+
+  const isDraft = campaign?.campaignStatus === 'DRAFT';
+  const hasRecipients = emails.length > 0;
+  const canUploadSheet = isDraft && !hasRecipients;
+
+  const validateFile = (file) => {
+    if (!file) return null;
+
+    const validTypes = [
+      'text/csv',
+      'application/vnd.ms-excel',
+      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    ];
+    const validExtension = /\.(csv|xlsx|xls)$/i.test(file.name);
+
+    if (!validTypes.includes(file.type) && !validExtension) {
+      toast.error('Please upload a CSV or XLSX file');
+      return null;
+    }
+
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error('File must be 5MB or smaller');
+      return null;
+    }
+
+    return file;
+  };
+
+  const handleFileChange = (event) => {
+    const file = validateFile(event.target.files?.[0]);
+    if (file) setSelectedFile(file);
+  };
+
+  const handleDrop = (event) => {
+    event.preventDefault();
+    const file = validateFile(event.dataTransfer.files?.[0]);
+    if (file) setSelectedFile(file);
+  };
+
+  const handleUpload = async () => {
+    if (!selectedFile) {
+      toast.error('Please select a file first');
+      return;
+    }
+
+    setUploading(true);
+    try {
+      await uploadCampaignFile(campaignId, selectedFile);
+      toast.success('Recipients uploaded successfully');
+      setSelectedFile(null);
+      await loadData();
+    } catch (error) {
+      toast.error(getApiErrorMessage(error, 'Failed to upload file'));
+    } finally {
+      setUploading(false);
+    }
+  };
 
   const handleSendAll = async () => {
     setSendingAll(true);
@@ -162,11 +226,21 @@ function CampaignDetailsPage() {
             )}
           </Box>
 
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <StatusChip status={campaign.campaignStatus} />
-            {campaign.campaignStatus === 'DRAFT' && emails.length > 0 && (
-              <LoadingButton
+            {isDraft && (
+              <Button
                 variant="contained"
+                startIcon={<EditOutlinedIcon />}
+                onClick={() => setEditOpen(true)}
+                sx={{ borderRadius: '8px' }}
+              >
+                Edit Campaign
+              </Button>
+            )}
+            {isDraft && hasRecipients && (
+              <LoadingButton
+                variant="outlined"
                 loading={sendingAll}
                 onClick={handleSendAll}
                 sx={{ borderRadius: '8px' }}
@@ -228,54 +302,117 @@ function CampaignDetailsPage() {
         <Typography variant="caption">{emails.length} total</Typography>
       </Box>
 
-      <TableContainer>
-        <Table>
-          <TableHead>
-            <TableRow>
-              <TableCell>Recipient</TableCell>
-              <TableCell>Variables Preview</TableCell>
-              <TableCell>Status</TableCell>
-              <TableCell align="right">Action</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {emails.length === 0 ? (
+      {canUploadSheet ? (
+        <Box sx={{ px: 3, pb: 3 }}>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            This draft has no recipients yet. Upload a CSV or XLSX file to continue.
+          </Typography>
+
+          <Box
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDrop}
+            sx={{
+              border: '1px dashed #CBD5E1',
+              borderRadius: '10px',
+              backgroundColor: '#F8FAFC',
+              px: 3,
+              py: 5,
+              textAlign: 'center',
+            }}
+          >
+            <CloudUploadOutlinedIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
+            <Typography sx={{ color: 'text.primary', fontWeight: 500, mb: 0.5 }}>
+              Drag & drop your recipients file
+            </Typography>
+            <Typography variant="body2" sx={{ mb: 2 }}>
+              CSV or XLSX accepted (max 5MB). Must include an email column.
+            </Typography>
+            <Button variant="outlined" component="label" sx={{ borderRadius: '8px' }}>
+              Browse
+              <input
+                hidden
+                type="file"
+                accept=".csv,.xlsx,.xls"
+                onChange={handleFileChange}
+              />
+            </Button>
+            {selectedFile && (
+              <Typography variant="body2" sx={{ mt: 2, color: '#1976D2' }}>
+                Selected: {selectedFile.name}
+              </Typography>
+            )}
+          </Box>
+
+          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 2 }}>
+            <LoadingButton
+              variant="contained"
+              loading={uploading}
+              disabled={!selectedFile}
+              onClick={handleUpload}
+              sx={{ borderRadius: '8px' }}
+            >
+              Upload Recipients
+            </LoadingButton>
+          </Box>
+        </Box>
+      ) : (
+        <TableContainer>
+          <Table>
+            <TableHead>
               <TableRow>
-                <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                  <Typography color="text.secondary">
-                    No recipients uploaded yet
-                  </Typography>
-                </TableCell>
+                <TableCell>Recipient</TableCell>
+                <TableCell>Variables Preview</TableCell>
+                <TableCell>Status</TableCell>
+                <TableCell align="right">Action</TableCell>
               </TableRow>
-            ) : (
-              emails.map((email) => (
-                <TableRow key={email.id}>
-                  <TableCell sx={{ color: 'text.primary' }}>
-                    {email.recipientEmail}
+            </TableHead>
+            <TableBody>
+              {emails.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                    <Typography color="text.secondary">
+                      No recipients uploaded yet
+                    </Typography>
                   </TableCell>
-                  <TableCell>{formatVariables(email.variables)}</TableCell>
-                  <TableCell>
-                    <StatusChip status={email.status} />
-                  </TableCell>
-                  <TableCell align="right">
-                    {email.status === 'PENDING' && (
+                </TableRow>
+              ) : (
+                emails.map((email) => (
+                  <TableRow key={email.id}>
+                    <TableCell sx={{ color: 'text.primary' }}>
+                      {email.recipientEmail}
+                    </TableCell>
+                    <TableCell>{formatVariables(email.variables)}</TableCell>
+                    <TableCell>
+                      <StatusChip status={email.status} />
+                    </TableCell>
+                    <TableCell align="right">
                       <LoadingButton
                         size="small"
                         variant="outlined"
+                        disabled={
+                          email.status === 'PENDING' || email.status === 'SENT'
+                        }
                         loading={sendingEmailId === email.id}
                         onClick={() => handleSendOne(email.id)}
                         sx={{ borderRadius: '8px' }}
                       >
                         Send
                       </LoadingButton>
-                    )}
-                  </TableCell>
-                </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
-      </TableContainer>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
+      <EditCampaignDialog
+        open={editOpen}
+        campaign={campaign}
+        onClose={() => setEditOpen(false)}
+        onSuccess={loadData}
+      />
     </Paper>
   );
 }

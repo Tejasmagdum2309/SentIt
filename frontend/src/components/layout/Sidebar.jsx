@@ -17,6 +17,7 @@ import FolderOutlinedIcon from '@mui/icons-material/FolderOutlined';
 // import SendOutlinedIcon from '@mui/icons-material/SendOutlined';
 import SettingsOutlinedIcon from '@mui/icons-material/SettingsOutlined';
 import DashboardOutlinedIcon from '@mui/icons-material/DashboardOutlined';
+import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import useAuth from '../../hooks/useAuth';
 
 export const SIDEBAR_WIDTH = 250;
@@ -27,6 +28,7 @@ const navItems = [
   { label: 'Campaigns', path: '/campaigns', icon: <FolderOutlinedIcon fontSize="small" /> },
   // { label: 'Drafts', path: '/campaigns?status=draft', icon: <DraftsOutlinedIcon fontSize="small" /> },
   // { label: 'Sent', path: '/campaigns?status=sent', icon: <SendOutlinedIcon fontSize="small" /> },
+  { label: 'Next Phase', path: '/nextPhase', icon: <RocketLaunchOutlinedIcon fontSize="small" /> },
   { label: 'Settings', path: '/settings', icon: <SettingsOutlinedIcon fontSize="small" /> },
 ];
 
@@ -92,7 +94,7 @@ function Sidebar() {
             component="img"
             src="/SentIt.svg"
             alt="SentIt"
-            sx={{ height: 52, width: 'auto', display: 'block' }}
+            sx={{height: 32, width: 'auto', objectFit: 'contain', display: 'block', mx: 'auto' }}
           />
         </Box>
 

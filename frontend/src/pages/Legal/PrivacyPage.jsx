@@ -215,8 +215,8 @@ function PrivacyPage() {
             <Typography variant="body1" sx={{ color: 'text.primary' }}>
               If you have any questions regarding this Privacy Policy, please
               contact:{' '}
-              <Link href="mailto:support@sentit.com" underline="hover">
-                support@sentit.com
+              <Link href="mailto:magdumtej1008@gmail.com" underline="hover">
+                magdumtej1008@gmail.com
               </Link>
             </Typography>
           </Section>

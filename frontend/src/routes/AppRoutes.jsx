@@ -9,6 +9,7 @@ import DashboardPage from '../pages/Dashboard/DashboardPage';
 import CampaignsPage from '../pages/Campaigns/CampaignsPage';
 import CampaignDetailsPage from '../pages/Campaigns/CampaignDetailsPage';
 import SettingsPage from '../pages/Settings/SettingsPage';
+import NextPhasePage from '../pages/NextPhase/NextPhasePage';
 import TermsPage from '../pages/Legal/TermsPage';
 import PrivacyPage from '../pages/Legal/PrivacyPage';
 
@@ -97,6 +98,7 @@ function AppRoutes() {
         <Route path="/campaign/:campaignId" element={<CampaignDetailsPage />} />
         <Route path="/campaigns/:campaignId" element={<LegacyCampaignRedirect />} />
         <Route path="/settings" element={<SettingsPage />} />
+        <Route path="/nextPhase" element={<NextPhasePage />} />
       </Route>
 
       <Route path="*" element={<Navigate to="/dashboard" replace />} />

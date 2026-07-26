@@ -18,6 +18,7 @@ function getPageTitle(pathname) {
   if (pathname.startsWith('/campaign/')) return 'Campaign Emails';
   if (pathname.startsWith('/campaigns/')) return 'Campaign';
   if (pathname === '/campaigns') return 'Campaigns';
+  if (pathname === '/nextPhase') return 'Next Phase';
   if (pathname === '/settings') return 'Settings';
   return 'SentIt';
 }
@@ -47,7 +48,7 @@ function TopBar() {
         color: 'text.primary',
       }}
     >
-      <Toolbar sx={{ gap: 2, minHeight: 64 }}>
+      <Toolbar sx={{ gap: 2, height: 40, alignItems: 'center', justifyContent: 'space-between' }}>
         <Typography
           sx={{
             fontSize: 18,
@@ -59,7 +60,7 @@ function TopBar() {
           {title}
         </Typography>
 
-        <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
+        {/* <Box sx={{ flex: 1, display: 'flex', justifyContent: 'center' }}>
           <TextField
             size="small"
             placeholder="Search campaigns"
@@ -82,7 +83,7 @@ function TopBar() {
               ),
             }}
           />
-        </Box>
+        </Box> */}
 
         <Avatar sx={{ width: 36, height: 36, fontSize: 13 }}>{initials}</Avatar>
       </Toolbar>
