@@ -10,6 +10,8 @@ const app = express();
 
 app.use(cors());
 app.use(express.json());
+app.set("trust proxy", 1);
+
 app.use(apiLimiter)
 
 app.use("/api/v1/auth", authRoutes);
