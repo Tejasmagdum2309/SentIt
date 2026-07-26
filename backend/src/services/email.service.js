@@ -1,43 +1,74 @@
-import { createTransporter } from "../config/mail.config.js";
-import { decryptRefreshToken } from "../config/token-encryption.js";
-import {updateCampaignEmailById} from "../services/campaign.service.js";
-import { createHttpError } from "../config/http-error.js";
-import {updateCampaignById} from "../services/campaign.service.js";
+// --- OLD: SMTP via Nodemailer transporter ---
+// import { createTransporter } from "../config/mail.config.js";
 
-export const sendEmail = async ({ user, to, subject, message }) => {
+import { sendMailWithGmailApi } from "../config/mail.config.js";
+import { decryptRefreshToken } from "../config/token-encryption.js";
+import { updateCampaignEmailById } from "../services/campaign.service.js";
+import { createHttpError } from "../config/http-error.js";
+import { updateCampaignById } from "../services/campaign.service.js";
+
+// --- OLD SMTP sendEmail ---
+// export const sendEmail = async ({ user, to, subject, message }) => {
+//   const refreshToken = decryptRefreshToken(user?.refreshToken);
+//
+//   if (!user?.email || !refreshToken) {
+//     throw new Error("Authenticated Google user with refresh token is required to send email");
+//   }
+//
+//   const transporter = await createTransporter({
+//     email: user.email,
+//     refreshToken,
+//   });
+//
+//   try {
+//     await transporter.verify();
+//     return transporter.sendMail({
+//       from: user.email,
+//       to,
+//       subject,
+//       text: message,
+//     });
+//   } catch (error) {
+//     console.log("error", error);
+//     throw createHttpError(500, error.message);
+//   }
+// };
+
+/** NEW: Send one email via Gmail API (same args / return shape as old sendEmail). */
+export const sendEmailWithGmailApi = async ({ user, to, subject, message }) => {
   const refreshToken = decryptRefreshToken(user?.refreshToken);
 
-
   if (!user?.email || !refreshToken) {
-    throw new Error("Authenticated Google user with refresh token is required to send email");
+    throw new Error(
+      "Authenticated Google user with refresh token is required to send email"
+    );
   }
 
-  const transporter = await createTransporter({
-    email: user.email,
-    refreshToken,
-  });
-  
-  try{
-    await transporter.verify();
-    return transporter.sendMail({
-    from: user.email,
-    to,
-    subject,
-    text: message,
-  });
-} catch (error) {
-  console.log("error", error);
-  throw createHttpError(500, error.message);
-}
+  try {
+    return await sendMailWithGmailApi({
+      email: user.email,
+      refreshToken,
+      to,
+      subject,
+      message,
+    });
+  } catch (error) {
+    console.log("error", error);
+    throw createHttpError(500, error.message);
+  }
 };
+
+// Keep old name working for controllers — delegates to Gmail API
+export const sendEmail = sendEmailWithGmailApi;
 
 export const sendCampaignEmailsInBackground = async ({
   campaign,
   emails,
   user,
 }) => {
-
-  console.log(`Starting sending mails ------------------------- for campaign ${campaign.id}`);
+  console.log(
+    `Starting sending mails ------------------------- for campaign ${campaign.id}`
+  );
   for (const campaignEmail of emails) {
     try {
       let body = campaign.emailBody;
@@ -46,10 +77,12 @@ export const sendCampaignEmailsInBackground = async ({
       }
 
       // Remove in Fucture -- Tejas
-      if(campaignEmail.status !== "PENDING"){
+      if (campaignEmail.status !== "PENDING") {
         continue;
       }
-      const info = await sendEmail({
+
+      // OLD: const info = await sendEmail({ ... SMTP path ... });
+      const info = await sendEmailWithGmailApi({
         user,
         to: campaignEmail.recipientEmail,
         subject: campaign.emailSubject,
@@ -70,11 +103,13 @@ export const sendCampaignEmailsInBackground = async ({
         id: campaignEmail.id,
         status: "FAILED",
         errorMessage: error.message,
-      })
+      });
     }
   }
 
-  console.log(`Finished sending mails ------------------------- for campaign ${campaign.id}`);
+  console.log(
+    `Finished sending mails ------------------------- for campaign ${campaign.id}`
+  );
 
   await updateCampaignById({
     id: campaign.id,
