@@ -12,29 +12,21 @@ import {
   TextField,
   Typography,
 } from '@mui/material';
-import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import toast from 'react-hot-toast';
 import LoadingButton from '../common/LoadingButton';
 import {
   createCampaign,
   getApiErrorMessage,
   updateCampaign,
-  uploadCampaignFile,
 } from '../../api/campaigns';
 
-const steps = [
-  'Campaign Information',
-  'Compose Email',
-  'Upload Recipients',
-  'Review',
-];
+const steps = ['Campaign Information', 'Compose Email', 'Review'];
 
 const initialForm = {
   name: '',
   description: '',
   subject: '',
   body: '',
-  file: null,
 };
 
 function NewCampaignDialog({ open, onClose, onSuccess }) {
@@ -96,11 +88,6 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
     });
   };
 
-  const uploadFileIfNeeded = async (id) => {
-    if (!form.file) return;
-    await uploadCampaignFile(id, form.file);
-  };
-
   const handleNext = async () => {
     if (activeStep === 0 && !form.name.trim()) {
       toast.error('Campaign name is required');
@@ -128,19 +115,11 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
         return;
       }
 
-      if (activeStep === 2) {
-        const id = await ensureCampaignCreated();
-        await uploadFileIfNeeded(id);
-        setActiveStep(3);
-        return;
-      }
-
       // Review → finish
       const id = await ensureCampaignCreated();
       await saveEmailContent(id);
-      await uploadFileIfNeeded(id);
 
-      toast.success('Campaign saved');
+      toast.success('Campaign saved. Upload recipients on the campaign page.');
       resetForm();
       onSuccess?.(id);
     } catch (error) {
@@ -169,11 +148,7 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
         await saveEmailContent(id);
       }
 
-      if (form.file) {
-        await uploadFileIfNeeded(id);
-      }
-
-      toast.success('Draft saved');
+      toast.success('Draft saved. Upload recipients on the campaign page.');
       resetForm();
       onSuccess?.(id);
     } catch (error) {
@@ -181,37 +156,6 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
     } finally {
       setSaving(false);
     }
-  };
-
-  const handleFileChange = (event) => {
-    const file = event.target.files?.[0];
-    if (!file) return;
-
-    const validTypes = [
-      'text/csv',
-      'application/vnd.ms-excel',
-      'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-    ];
-    const validExtension = /\.(csv|xlsx|xls)$/i.test(file.name);
-
-    if (!validTypes.includes(file.type) && !validExtension) {
-      toast.error('Please upload a CSV or XLSX file');
-      return;
-    }
-
-    if (file.size > 5 * 1024 * 1024) {
-      toast.error('File must be 5MB or smaller');
-      return;
-    }
-
-    setForm((prev) => ({ ...prev, file }));
-  };
-
-  const handleDrop = (event) => {
-    event.preventDefault();
-    const file = event.dataTransfer.files?.[0];
-    if (!file) return;
-    handleFileChange({ target: { files: [file] } });
   };
 
   return (
@@ -280,45 +224,6 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
         )}
 
         {activeStep === 2 && (
-          <Box sx={{ mt: 1 }}>
-            <Box
-              onDragOver={(event) => event.preventDefault()}
-              onDrop={handleDrop}
-              sx={{
-                border: '1px dashed #CBD5E1',
-                borderRadius: '10px',
-                backgroundColor: '#F8FAFC',
-                px: 3,
-                py: 6,
-                textAlign: 'center',
-              }}
-            >
-              <CloudUploadOutlinedIcon sx={{ fontSize: 40, color: 'text.secondary', mb: 1 }} />
-              <Typography sx={{ color: 'text.primary', fontWeight: 500, mb: 0.5 }}>
-                Drag & drop your recipients file
-              </Typography>
-              <Typography variant="body2" sx={{ mb: 2 }}>
-                CSV or XLSX accepted (max 5MB). Must include an email column.
-              </Typography>
-              <Button variant="outlined" component="label" sx={{ borderRadius: '8px' }}>
-                Browse
-                <input
-                  hidden
-                  type="file"
-                  accept=".csv,.xlsx,.xls"
-                  onChange={handleFileChange}
-                />
-              </Button>
-              {form.file && (
-                <Typography variant="body2" sx={{ mt: 2, color: '#1976D2' }}>
-                  Selected: {form.file.name}
-                </Typography>
-              )}
-            </Box>
-          </Box>
-        )}
-
-        {activeStep === 3 && (
           <Box
             sx={{
               mt: 1,
@@ -349,8 +254,8 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
                 ? `${form.body.slice(0, 120)}${form.body.length > 120 ? '…' : ''}`
                 : '—'}
             </Typography>
-            <Typography variant="body2">
-              <strong>Recipients file:</strong> {form.file?.name || 'None uploaded'}
+            <Typography variant="caption" sx={{ mt: 1 }}>
+              Next: open the campaign page to upload your recipients sheet.
             </Typography>
           </Box>
         )}
