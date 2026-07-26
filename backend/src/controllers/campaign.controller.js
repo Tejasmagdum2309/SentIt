@@ -6,7 +6,8 @@ import {
   updateCampaignById,
   getCampaignEmails,
   getEmailById,
-  getSentCampaignCount
+  getSentCampaignCount,
+  updateCampaignEmailById 
 } from "../services/campaign.service.js";
 
 import { getUserByEmailWithRefreshToken } from "../services/user.service.js";
@@ -167,58 +168,97 @@ export const getCampaignEmailsController = async (req, res) => {
 }
 
 export const getCampaignEmailController = async (req, res) => {
-    try {
-      const { campaignI , emailId} = req.params;
+  try {
+    const { campaignId, emailId } = req.params;
 
-  
-      const email = await getEmailById({
-        emailId,
-        userId: req.user.id,
-      });
-
-  
-      if (!email) {
-        return res.status(404).json({
-          success: false,
-          message: "Email not found",
-        });
-      }
-
-      const user = await getUserByEmailWithRefreshToken(req.user.email);
-
-
-      await sendEmail({
-        user: user,
-        to: email.recipientEmail,
-        subject: "Test",
-        message: "Test Message",
-      });
-  
-      // const emails = await getCampaignEmails({
-      //   campaignId : campaignI,
-      //   userId: req.user.id,
-      // });
-  
-      // if (!emails) {
-      //   return res.status(404).json({
-      //     success: false,
-      //     message: "Campaign not found",
-      //   });
-      // }
-  
-      return res.status(200).json({
-        success: true,
-        message: "Emails fetched successfully",
-        data: emails,
+    // 1. Get campaign
+    const campaign = await getCampaignById({ id: campaignId });
+    if (!campaign) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
       });
     }
-    catch (error) {
+
+    // 2. Get campaign email
+    const campaignEmail = await getEmailById({
+      emailId,
+      userId: req.user.id,
+    });
+
+    if (!campaignEmail || campaignEmail.campaignId !== campaignId) {
+      return res.status(404).json({
+        success: false,
+        message: "Email not found",
+      });
+    }
+
+    // Optional: same guard as background sender
+    if (campaignEmail.status !== "FAILED") {
+      return res.status(400).json({
+        success: false,
+        message: `Email already ${campaignEmail.status}`,
+      });
+    }
+
+    const user = await getUserByEmailWithRefreshToken(req.user.email);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "User not found",
+      });
+    }
+
+    // 3. Interpolate variables (same as email.service.js)
+    let body = campaign.emailBody ?? "";
+    for (const [key, value] of Object.entries(campaignEmail.variables || {})) {
+      body = body.replaceAll(`{{${key}}}`, value ?? "");
+    }
+
+    // 4. Send mail
+    try {
+      const info = await sendEmail({
+        user,
+        to: campaignEmail.recipientEmail,
+        subject: campaign.emailSubject,
+        message: body,
+      });
+
+      await updateCampaignEmailById({
+        id: campaignEmail.id,
+        status: "SENT",
+        messageId: info.messageId,
+        sentAt: new Date(),
+      });
+
+      return res.status(200).json({
+        success: true,
+        message: "Email sent successfully",
+        data: {
+          emailId: campaignEmail.id,
+          recipientEmail: campaignEmail.recipientEmail,
+          messageId: info.messageId,
+        },
+      });
+    } catch (error) {
+      await updateCampaignEmailById({
+        id: campaignEmail.id,
+        status: "FAILED",
+        errorMessage: error.message,
+      });
+
       return res.status(error.statusCode || 500).json({
         success: false,
         message: error.message,
       });
     }
-}
+  } catch (error) {
+    return res.status(error.statusCode || 500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
 
 export const sendCampaignEmailController = async (req, res) => {
     try {

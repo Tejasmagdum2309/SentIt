@@ -3,7 +3,7 @@ import rateLimit from "express-rate-limit";
 
 export const apiLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 80,
+  max: 800,
 
   handler: (req, res) => {
     console.log("Rate limit exceeded");
@@ -18,7 +18,7 @@ export const apiLimiter = rateLimit({
 
 export const authLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   handler : (req , res) => {
     console.log("Rate limit exceeded");
     console.log("IP:", req.ip);
@@ -33,7 +33,7 @@ export const authLimiter = rateLimit({
 
 export const uploadLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 10,
+  max: 50,
   handler : (req , res) => {
     console.log("Rate limit exceeded");
     console.log("IP:", req.ip);     
