@@ -17,12 +17,15 @@ import {
 import ArrowBackIcon from '@mui/icons-material/ArrowBack';
 import CloudUploadOutlinedIcon from '@mui/icons-material/CloudUploadOutlined';
 import EditOutlinedIcon from '@mui/icons-material/EditOutlined';
+import VisibilityOutlinedIcon from '@mui/icons-material/VisibilityOutlined';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import StatusChip from '../../components/common/StatusChip';
 import LoadingButton from '../../components/common/LoadingButton';
+import HighlightedTemplate from '../../components/common/HighlightedTemplate';
 import EditCampaignDialog from '../../components/campaigns/EditCampaignDialog';
-import formatVariables from '../../utils/formatVariables';
+import EmailPreviewDialog from '../../components/campaigns/EmailPreviewDialog';
+import VariablesPreview from '../../components/campaigns/VariablesPreview';
 import {
   getApiErrorMessage,
   getCampaignEmails,
@@ -44,6 +47,7 @@ function CampaignDetailsPage() {
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [previewRecipient, setPreviewRecipient] = useState(null);
 
   const loadData = async () => {
     try {
@@ -179,6 +183,7 @@ function CampaignDetailsPage() {
   }
 
   return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
     <Paper
       sx={{
         borderRadius: '10px',
@@ -259,13 +264,13 @@ function CampaignDetailsPage() {
           Subject
         </Typography>
         <Typography sx={{ fontSize: 15, fontWeight: 500, color: 'text.primary' }}>
-          {campaign.emailSubject || '—'}
+          <HighlightedTemplate text={campaign.emailSubject?.trim()} />
         </Typography>
       </Box>
 
       <Divider />
 
-      <Box sx={{ px: 3, py: 2.5 }}>
+      <Box sx={{ px: 3, pt: 2, pb: 1.5 }}>
         <Typography variant="caption" sx={{ display: 'block', mb: 1 }}>
           Email Body
         </Typography>
@@ -280,16 +285,23 @@ function CampaignDetailsPage() {
             color: 'text.primary',
           }}
         >
-          {campaign.emailBody || '—'}
+          <HighlightedTemplate text={campaign.emailBody?.trim()} />
         </Typography>
       </Box>
-
-      <Divider />
-
+    </Paper>
+      {/* <Divider /> */}
+      <Paper
+      sx={{
+        borderRadius: '10px',
+        border: '1px solid #E2E8F0',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.04)',
+        overflow: 'hidden',
+      }}
+    >
       <Box
         sx={{
           px: 3,
-          pt: 2.5,
+          pt: 1.5,
           pb: 1,
           display: 'flex',
           justifyContent: 'space-between',
@@ -381,23 +393,43 @@ function CampaignDetailsPage() {
                     <TableCell sx={{ color: 'text.primary' }}>
                       {email.recipientEmail}
                     </TableCell>
-                    <TableCell>{formatVariables(email.variables)}</TableCell>
+                    <TableCell>
+                      <VariablesPreview variables={email.variables} />
+                    </TableCell>
                     <TableCell>
                       <StatusChip status={email.status} />
                     </TableCell>
                     <TableCell align="right">
-                      <LoadingButton
-                        size="small"
-                        variant="outlined"
-                        disabled={
-                          email.status === 'PENDING' || email.status === 'SENT'
-                        }
-                        loading={sendingEmailId === email.id}
-                        onClick={() => handleSendOne(email.id)}
-                        sx={{ borderRadius: '8px' }}
+                      <Box
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'flex-end',
+                          gap: 1,
+                          flexWrap: 'wrap',
+                        }}
                       >
-                        Send
-                      </LoadingButton>
+                        <Button
+                          size="small"
+                          variant="text"
+                          startIcon={<VisibilityOutlinedIcon />}
+                          onClick={() => setPreviewRecipient(email)}
+                          sx={{ borderRadius: '8px' }}
+                        >
+                          Preview
+                        </Button>
+                        <LoadingButton
+                          size="small"
+                          variant="outlined"
+                          disabled={
+                            email.status === 'PENDING' || email.status === 'SENT'
+                          }
+                          loading={sendingEmailId === email.id}
+                          onClick={() => handleSendOne(email.id)}
+                          sx={{ borderRadius: '8px' }}
+                        >
+                          Send
+                        </LoadingButton>
+                      </Box>
                     </TableCell>
                   </TableRow>
                 ))
@@ -407,13 +439,21 @@ function CampaignDetailsPage() {
         </TableContainer>
       )}
 
-      <EditCampaignDialog
+     
+    </Paper>
+     <EditCampaignDialog
         open={editOpen}
         campaign={campaign}
         onClose={() => setEditOpen(false)}
         onSuccess={loadData}
       />
-    </Paper>
+      <EmailPreviewDialog
+        open={Boolean(previewRecipient)}
+        campaign={campaign}
+        recipient={previewRecipient}
+        onClose={() => setPreviewRecipient(null)}
+      />
+    </Box>
   );
 }
 

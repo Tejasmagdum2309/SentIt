@@ -21,6 +21,7 @@ import RocketLaunchOutlinedIcon from '@mui/icons-material/RocketLaunchOutlined';
 import useAuth from '../../hooks/useAuth';
 
 export const SIDEBAR_WIDTH = 250;
+export const NAV_HEIGHT = 64;
 
 const navItems = [
   { label: 'Dashboard', path: '/dashboard', icon: <DashboardOutlinedIcon fontSize="small" /> },
@@ -78,6 +79,7 @@ function Sidebar() {
           boxSizing: 'border-box',
           borderRight: '1px solid #E2E8F0',
           backgroundColor: '#ffffff',
+          borderRadius: 0,
         },
       }}
     >
@@ -86,19 +88,32 @@ function Sidebar() {
           display: 'flex',
           flexDirection: 'column',
           height: '100%',
-          py: 2,
         }}
       >
-        <Box sx={{ px: 2.5, pb: 2 }}>
+        <Box
+          sx={{
+            height: NAV_HEIGHT,
+            minHeight: NAV_HEIGHT,
+            px: 2,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            borderBottom: '1px solid #E2E8F0',
+          }}
+        >
           <Box
             component="img"
             src="/SentIt.svg"
             alt="SentIt"
-            sx={{height: 32, width: 'auto', objectFit: 'contain', display: 'block', mx: 'auto' }}
+            sx={{
+              height: 56,
+              width: 'auto',
+              maxWidth: '100%',
+              objectFit: 'contain',
+              display: 'block',
+            }}
           />
         </Box>
-
-        <Divider />
 
         <List sx={{ px: 1, py: 1.5, flex: 1 }}>
           {navItems.map((item) => (

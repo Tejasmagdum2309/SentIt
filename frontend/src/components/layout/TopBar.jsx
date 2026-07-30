@@ -10,7 +10,7 @@ import {
 } from '@mui/material';
 import SearchIcon from '@mui/icons-material/Search';
 import useAuth from '../../hooks/useAuth';
-import { SIDEBAR_WIDTH } from './Sidebar';
+import { NAV_HEIGHT, SIDEBAR_WIDTH } from './Sidebar';
 
 function getPageTitle(pathname) {
   if (pathname === '/dashboard') return 'Dashboard';
@@ -46,9 +46,18 @@ function TopBar() {
         backgroundColor: '#ffffff',
         borderBottom: '1px solid #E2E8F0',
         color: 'text.primary',
+        borderRadius: 0,
       }}
     >
-      <Toolbar sx={{ gap: 2, height: 40, alignItems: 'center', justifyContent: 'space-between' }}>
+      <Toolbar
+        sx={{
+          gap: 2,
+          minHeight: `${NAV_HEIGHT}px !important`,
+          height: NAV_HEIGHT,
+          alignItems: 'center',
+          justifyContent: 'space-between',
+        }}
+      >
         <Typography
           sx={{
             fontSize: 18,

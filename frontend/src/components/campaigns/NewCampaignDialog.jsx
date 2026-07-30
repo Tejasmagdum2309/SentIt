@@ -94,9 +94,15 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
       return;
     }
 
-    if (activeStep === 1 && !form.subject.trim()) {
-      toast.error('Subject is required');
-      return;
+    if (activeStep === 1) {
+      if (!form.subject.trim()) {
+        toast.error('Subject is required');
+        return;
+      }
+      if (!form.body.trim()) {
+        toast.error('Body is required');
+        return;
+      }
     }
 
     setSaving(true);
@@ -115,13 +121,7 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
         return;
       }
 
-      // Review → finish
-      const id = await ensureCampaignCreated();
-      await saveEmailContent(id);
-
-      toast.success('Campaign saved. Upload recipients on the campaign page.');
-      resetForm();
-      onSuccess?.(id);
+      // Review is view-only — user saves with Save Draft
     } catch (error) {
       toast.error(getApiErrorMessage(error));
     } finally {
@@ -216,10 +216,14 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
               value={form.body}
               onChange={updateField('body')}
               fullWidth
+              required
               multiline
               minRows={10}
               placeholder="Write your email content here. You can use {{variable}} placeholders."
             />
+            <Typography variant="caption" sx={{ mt: -1.5, color: 'text.secondary' }}>
+              Use placeholders like {'{{userName}}'} matching column names from your uploaded sheet.
+            </Typography>
           </Box>
         )}
 
@@ -270,21 +274,23 @@ function NewCampaignDialog({ open, onClose, onSuccess }) {
           Previous
         </Button>
         <LoadingButton
-          variant="outlined"
+          variant={activeStep === steps.length - 1 ? 'contained' : 'outlined'}
           loading={saving}
           onClick={handleSaveDraft}
           sx={{ borderRadius: '8px' }}
         >
           Save Draft
         </LoadingButton>
-        <LoadingButton
-          variant="contained"
-          loading={saving}
-          onClick={handleNext}
-          sx={{ borderRadius: '8px' }}
-        >
-          {activeStep === steps.length - 1 ? 'Finish' : 'Continue'}
-        </LoadingButton>
+        {activeStep < steps.length - 1 && (
+          <LoadingButton
+            variant="contained"
+            loading={saving}
+            onClick={handleNext}
+            sx={{ borderRadius: '8px' }}
+          >
+            Continue
+          </LoadingButton>
+        )}
       </DialogActions>
     </Dialog>
   );

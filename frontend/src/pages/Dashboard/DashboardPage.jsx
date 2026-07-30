@@ -16,12 +16,11 @@ import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import StatCard from '../../components/common/StatCard';
 import StatusChip from '../../components/common/StatusChip';
-import { getApiErrorMessage, getCampaignEmails, getCampaigns } from '../../api/campaigns';
+import { getApiErrorMessage, getCampaigns } from '../../api/campaigns';
 
 function DashboardPage() {
   const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState([]);
-  const [recipientCount, setRecipientCount] = useState(0);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -31,22 +30,7 @@ function DashboardPage() {
       try {
         const list = await getCampaigns();
         if (cancelled) return;
-
         setCampaigns(list);
-
-        const counts = await Promise.all(
-          list.map(async (campaign) => {
-            try {
-              const emails = await getCampaignEmails(campaign.id);
-              return emails.length;
-            } catch {
-              return 0;
-            }
-          })
-        );
-
-        if (cancelled) return;
-        setRecipientCount(counts.reduce((sum, count) => sum + count, 0));
       } catch (error) {
         if (!cancelled) {
           toast.error(getApiErrorMessage(error, 'Failed to load dashboard'));
@@ -85,7 +69,7 @@ function DashboardPage() {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            lg: 'repeat(4, 1fr)',
+            lg: 'repeat(3, 1fr)',
           },
           gap: 2.5,
           mb: 3,
@@ -94,7 +78,6 @@ function DashboardPage() {
         <StatCard label="Total Campaigns" value={campaigns.length} />
         <StatCard label="Draft Campaigns" value={drafts} />
         <StatCard label="Sent Campaigns" value={sent} />
-        <StatCard label="Recipients" value={recipientCount.toLocaleString()} />
       </Box>
 
       <Paper
