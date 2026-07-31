@@ -11,25 +11,48 @@ import AddIcon from '@mui/icons-material/Add';
 import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import StatusChip from '../../components/common/StatusChip';
+import SimplePagination from '../../components/common/SimplePagination';
 import NewCampaignDialog from '../../components/campaigns/NewCampaignDialog';
 import { getApiErrorMessage, getCampaigns } from '../../api/campaigns';
+
+const PAGE_SIZE = 10;
 
 function CampaignsPage() {
   const navigate = useNavigate();
   const location = useLocation();
-  const [searchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const statusFilter = searchParams.get('status');
+  const pageFromUrl = Number(searchParams.get('page')) || 1;
 
   const [campaigns, setCampaigns] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
   const [loading, setLoading] = useState(true);
 
   const isNewCampaignOpen = location.pathname === '/campaigns/new';
+  const page = pageFromUrl < 1 ? 1 : pageFromUrl;
 
-  const loadCampaigns = async () => {
+  const apiStatus =
+    statusFilter === 'draft'
+      ? 'DRAFT'
+      : statusFilter === 'sent'
+        ? 'SENT'
+        : undefined;
+
+  const loadCampaigns = async (nextPage = page) => {
     try {
       setLoading(true);
-      const list = await getCampaigns();
-      setCampaigns(list);
+      const result = await getCampaigns({
+        page: nextPage,
+        limit: PAGE_SIZE,
+        status: apiStatus,
+      });
+      setCampaigns(result.data);
+      setPagination(result.pagination);
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Failed to load campaigns'));
     } finally {
@@ -38,22 +61,14 @@ function CampaignsPage() {
   };
 
   useEffect(() => {
-    loadCampaigns();
-  }, []);
+    loadCampaigns(page);
+  }, [page, statusFilter]);
 
-  let filtered = [...campaigns];
-
-  if (statusFilter === 'draft') {
-    filtered = filtered.filter((campaign) => campaign.campaignStatus === 'DRAFT');
-  }
-
-  if (statusFilter === 'sent') {
-    filtered = filtered.filter((campaign) => campaign.campaignStatus === 'SENT');
-  }
-
-  filtered = filtered.sort(
-    (a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf()
-  );
+  const handlePageChange = (nextPage) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', String(nextPage));
+    setSearchParams(params);
+  };
 
   const emptyLabel =
     statusFilter === 'draft'
@@ -92,7 +107,9 @@ function CampaignsPage() {
                   ? 'Sent'
                   : 'All Campaigns'}
             </Typography>
-            <Typography variant="caption">{filtered.length} campaigns</Typography>
+            <Typography variant="caption">
+              {pagination.total} campaigns
+            </Typography>
           </Box>
 
           <Button
@@ -109,12 +126,12 @@ function CampaignsPage() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress size={32} />
           </Box>
-        ) : filtered.length === 0 ? (
+        ) : campaigns.length === 0 ? (
           <Box sx={{ py: 8, textAlign: 'center' }}>
             <Typography color="text.secondary">{emptyLabel}</Typography>
           </Box>
         ) : (
-          filtered.map((campaign, index) => (
+          campaigns.map((campaign, index) => (
             <Box
               key={campaign.id}
               onClick={() => navigate(`/campaign/${campaign.id}`)}
@@ -127,7 +144,7 @@ function CampaignsPage() {
                 py: 1.75,
                 cursor: 'pointer',
                 borderBottom:
-                  index === filtered.length - 1 ? 'none' : '1px solid #F1F5F9',
+                  index === campaigns.length - 1 ? 'none' : '1px solid #F1F5F9',
                 '&:hover': {
                   backgroundColor: '#F8FAFC',
                 },
@@ -154,13 +171,21 @@ function CampaignsPage() {
             </Box>
           ))
         )}
+
+        <SimplePagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          total={pagination.total}
+          limit={pagination.limit}
+          onChange={handlePageChange}
+        />
       </Paper>
 
       <NewCampaignDialog
         open={isNewCampaignOpen}
         onClose={() => navigate('/campaigns')}
         onSuccess={(campaignId) => {
-          loadCampaigns();
+          loadCampaigns(1);
           if (campaignId) {
             navigate(`/campaign/${campaignId}`);
           } else {

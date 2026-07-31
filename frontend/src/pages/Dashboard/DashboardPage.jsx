@@ -16,50 +16,81 @@ import dayjs from 'dayjs';
 import toast from 'react-hot-toast';
 import StatCard from '../../components/common/StatCard';
 import StatusChip from '../../components/common/StatusChip';
-import { getApiErrorMessage, getCampaigns } from '../../api/campaigns';
+import SimplePagination from '../../components/common/SimplePagination';
+import {
+  getApiErrorMessage,
+  getCampaigns,
+  getDashboardStats,
+} from '../../api/campaigns';
+
+const PAGE_SIZE = 5;
+
+const emptyStats = {
+  totalCampaigns: 0,
+  draftCampaigns: 0,
+  sentCampaigns: 0,
+  totalEmailsSent: 0,
+};
 
 function DashboardPage() {
   const navigate = useNavigate();
+  const [stats, setStats] = useState(emptyStats);
   const [campaigns, setCampaigns] = useState([]);
+  const [pagination, setPagination] = useState({
+    page: 1,
+    limit: PAGE_SIZE,
+    total: 0,
+    totalPages: 1,
+  });
+  const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     let cancelled = false;
 
-    async function loadDashboard() {
+    async function loadStats() {
       try {
-        const list = await getCampaigns();
-        if (cancelled) return;
-        setCampaigns(list);
+        const nextStats = await getDashboardStats();
+        if (!cancelled) setStats(nextStats);
       } catch (error) {
         if (!cancelled) {
-          toast.error(getApiErrorMessage(error, 'Failed to load dashboard'));
+          toast.error(getApiErrorMessage(error, 'Failed to load dashboard stats'));
         }
-      } finally {
-        if (!cancelled) setLoading(false);
       }
     }
 
-    loadDashboard();
+    loadStats();
 
     return () => {
       cancelled = true;
     };
   }, []);
 
-  const drafts = campaigns.filter((c) => c.campaignStatus === 'DRAFT').length;
-  const sent = campaigns.filter((c) => c.campaignStatus === 'SENT').length;
-  const recentCampaigns = [...campaigns]
-    .sort((a, b) => dayjs(b.createdAt).valueOf() - dayjs(a.createdAt).valueOf())
-    .slice(0, 5);
+  useEffect(() => {
+    let cancelled = false;
 
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
-        <CircularProgress size={32} />
-      </Box>
-    );
-  }
+    async function loadRecentCampaigns() {
+      try {
+        setLoading(true);
+        const recent = await getCampaigns({ page, limit: PAGE_SIZE });
+        if (cancelled) return;
+        setCampaigns(recent.data);
+        setPagination(recent.pagination);
+      } catch (error) {
+        if (!cancelled) {
+          toast.error(getApiErrorMessage(error, 'Failed to load campaigns'));
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    }
+
+    loadRecentCampaigns();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [page]);
 
   return (
     <Box>
@@ -69,15 +100,16 @@ function DashboardPage() {
           gridTemplateColumns: {
             xs: '1fr',
             sm: '1fr 1fr',
-            lg: 'repeat(3, 1fr)',
+            lg: 'repeat(4, 1fr)',
           },
           gap: 2.5,
           mb: 3,
         }}
       >
-        <StatCard label="Total Campaigns" value={campaigns.length} />
-        <StatCard label="Draft Campaigns" value={drafts} />
-        <StatCard label="Sent Campaigns" value={sent} />
+        <StatCard label="Total Campaigns" value={stats.totalCampaigns} />
+        <StatCard label="Draft Campaigns" value={stats.draftCampaigns} />
+        <StatCard label="Sent Campaigns" value={stats.sentCampaigns} />
+        <StatCard label="Emails Sent" value={stats.totalEmailsSent} />
       </Box>
 
       <Paper
@@ -94,47 +126,63 @@ function DashboardPage() {
           </Typography>
         </Box>
 
-        <TableContainer>
-          <Table>
-            <TableHead>
-              <TableRow>
-                <TableCell>Campaign</TableCell>
-                <TableCell>Status</TableCell>
-                <TableCell>Subject</TableCell>
-                <TableCell>Created</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {recentCampaigns.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
-                    <Typography color="text.secondary">No campaigns yet</Typography>
-                  </TableCell>
-                </TableRow>
-              ) : (
-                recentCampaigns.map((campaign) => (
-                  <TableRow
-                    key={campaign.id}
-                    hover
-                    sx={{ cursor: 'pointer' }}
-                    onClick={() => navigate(`/campaign/${campaign.id}`)}
-                  >
-                    <TableCell sx={{ color: 'text.primary', fontWeight: 500 }}>
-                      {campaign.campaignName}
-                    </TableCell>
-                    <TableCell>
-                      <StatusChip status={campaign.campaignStatus} />
-                    </TableCell>
-                    <TableCell>{campaign.emailSubject || '—'}</TableCell>
-                    <TableCell>
-                      {dayjs(campaign.createdAt).format('MMM D, YYYY')}
-                    </TableCell>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress size={32} />
+          </Box>
+        ) : (
+          <>
+            <TableContainer>
+              <Table>
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Campaign</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Subject</TableCell>
+                    <TableCell>Created</TableCell>
                   </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+                </TableHead>
+                <TableBody>
+                  {campaigns.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={4} align="center" sx={{ py: 4 }}>
+                        <Typography color="text.secondary">No campaigns yet</Typography>
+                      </TableCell>
+                    </TableRow>
+                  ) : (
+                    campaigns.map((campaign) => (
+                      <TableRow
+                        key={campaign.id}
+                        hover
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/campaign/${campaign.id}`)}
+                      >
+                        <TableCell sx={{ color: 'text.primary', fontWeight: 500 }}>
+                          {campaign.campaignName}
+                        </TableCell>
+                        <TableCell>
+                          <StatusChip status={campaign.campaignStatus} />
+                        </TableCell>
+                        <TableCell>{campaign.emailSubject || '—'}</TableCell>
+                        <TableCell>
+                          {dayjs(campaign.createdAt).format('MMM D, YYYY')}
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+
+            <SimplePagination
+              page={pagination.page}
+              totalPages={pagination.totalPages}
+              total={pagination.total}
+              limit={pagination.limit}
+              onChange={setPage}
+            />
+          </>
+        )}
       </Paper>
     </Box>
   );

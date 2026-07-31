@@ -52,12 +52,13 @@ function CampaignDetailsPage() {
   const loadData = async () => {
     try {
       setLoading(true);
-      const [campaigns, campaignEmails] = await Promise.all([
-        getCampaigns(),
+      const [campaignsResult, campaignEmails] = await Promise.all([
+        getCampaigns({ page: 1, limit: 100 }),
         getCampaignEmails(campaignId),
       ]);
 
-      const found = campaigns.find((item) => item.id === campaignId) || null;
+      const found =
+        campaignsResult.data.find((item) => item.id === campaignId) || null;
       setCampaign(found);
       setEmails(campaignEmails);
     } catch (error) {
