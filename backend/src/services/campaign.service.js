@@ -17,16 +17,49 @@ const publicCampaignSelect = {
   updatedAt: true,
 };
 
-export const getCampaignsByUserId = async (userId) => {
-  return prisma.campaign.findMany({
-    where: {
-      userId,
-    },
-    orderBy: {
-      createdAt: "desc",
-    },
-    select: publicCampaignSelect,
-  });
+export const getCampaignsByUserId = async ({ userId, page, limit, status }) => {
+  const where = {
+    userId,
+    ...(status ? { campaignStatus: status } : {}),
+  };
+
+  const [campaigns, total] = await Promise.all([
+    prisma.campaign.findMany({
+      where,
+      orderBy: {
+        createdAt: "desc",
+      },
+      skip: (page - 1) * limit,
+      take: limit,
+      select: publicCampaignSelect,
+    }),
+    prisma.campaign.count({ where }),
+  ]);
+
+  return { campaigns, total };
+};
+
+export const getCampaignStatsByUserId = async (userId) => {
+  const [totalCampaigns, draftCampaigns, sentCampaigns, totalEmailsSent] =
+    await Promise.all([
+      prisma.campaign.count({ where: { userId } }),
+      prisma.campaign.count({
+        where: { userId, campaignStatus: "DRAFT" },
+      }),
+      prisma.campaign.count({
+        where: { userId, campaignStatus: "SENT" },
+      }),
+      prisma.campaignEmail.count({
+        where: { userId, status: "SENT" },
+      }),
+    ]);
+
+  return {
+    totalCampaigns,
+    draftCampaigns,
+    sentCampaigns,
+    totalEmailsSent,
+  };
 };
 
 export const getCampaignById = async ({ id }) => {

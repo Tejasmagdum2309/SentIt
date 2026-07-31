@@ -1,6 +1,7 @@
 import {
   createCampaign,
   getCampaignsByUserId,
+  getCampaignStatsByUserId,
   getCampaignById,
   parseCampaignUploadFile,
   updateCampaignById,
@@ -18,12 +19,70 @@ import {sendEmail} from "../services/email.service.js";
 
 export const getCampaignsController = async (req, res) => {
   try {
-    const campaigns = await getCampaignsByUserId(req.user.id);
+    const rawPage = req.query.page;
+    const rawLimit = req.query.limit;
+    const status = req.query.status;
+
+    const page = rawPage !== undefined ? parseInt(rawPage, 10) : 1;
+    const limit = rawLimit !== undefined ? parseInt(rawLimit, 10) : 10;
+
+    if (Number.isNaN(page) || page < 1) {
+      return res.status(400).json({
+        success: false,
+        message: "page must be a number greater than or equal to 1",
+      });
+    }
+
+    if (Number.isNaN(limit) || limit < 1 || limit > 100) {
+      return res.status(400).json({
+        success: false,
+        message: "limit must be a number between 1 and 100",
+      });
+    }
+
+    if (status && !["DRAFT", "SENT"].includes(status)) {
+      return res.status(400).json({
+        success: false,
+        message: 'status must be "DRAFT" or "SENT"',
+      });
+    }
+
+    const { campaigns, total } = await getCampaignsByUserId({
+      userId: req.user.id,
+      page,
+      limit,
+      status,
+    });
+
+    const totalPages = total === 0 ? 1 : Math.ceil(total / limit);
 
     return res.status(200).json({
       success: true,
       message: "Campaigns fetched successfully",
       data: campaigns,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+      },
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
+export const getCampaignStatsController = async (req, res) => {
+  try {
+    const stats = await getCampaignStatsByUserId(req.user.id);
+
+    return res.status(200).json({
+      success: true,
+      message: "Dashboard stats fetched successfully",
+      data: stats,
     });
   } catch (error) {
     return res.status(500).json({
