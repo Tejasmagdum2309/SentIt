@@ -27,6 +27,7 @@ model User {
 
 enum CampaignStatus {
   DRAFT
+  SCHEDULED
   SENT
 }
 
@@ -39,6 +40,9 @@ model Campaign {
   emailBody           String   @db.Text @default("")
 
   campaignStatus      CampaignStatus @default(DRAFT)
+  scheduledAt         DateTime?
+  timeZone            String?
+
 
   userId              String
   user                User      @relation(fields: [userId],references: [id],onDelete: Cascade)
