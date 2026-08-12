@@ -8,7 +8,8 @@ import {
   getCampaignEmails,
   getEmailById,
   getSentCampaignCount,
-  updateCampaignEmailById 
+  updateCampaignEmailById, 
+  getCampaignEmailCount
 } from "../services/campaign.service.js";
 
 import { getUserByEmailWithRefreshToken } from "../services/user.service.js";
@@ -16,6 +17,8 @@ import { getUserByEmailWithRefreshToken } from "../services/user.service.js";
 import {sendCampaignEmailsInBackground} from "../services/email.service.js";
 
 import {sendEmail} from "../services/email.service.js";
+import { campaignQueue } from "../queues/campaign.queue.js";
+import { delay } from "bullmq";
 
 export const getCampaignsController = async (req, res) => {
   try {
@@ -354,42 +357,49 @@ export const sendCampaignEmailController = async (req, res) => {
         });
       }
 
-      const emails = await getCampaignEmails({
+      const emailsCount = await getCampaignEmailCount({
         campaignId : campaign.id,
         userId: req.user.id,
       });
 
-  
-      if (!emails || emails?.length === 0) {
+      if (emailsCount === 0) {
         return res.status(404).json({
           success: false,
           message: "No emails found",
         });
       }
 
-     const user = await getUserByEmailWithRefreshToken(req.user.email);
+    //  const user = await getUserByEmailWithRefreshToken(req.user.email);
 
-      if (!user) {
-        return res.status(404).json({
-          success: false,
-          message: "User not found",
-        });
-      }
+    //   if (!user) {
+    //     return res.status(404).json({
+    //       success: false,
+    //       message: "User not found",
+    //     });
+    //   }
       
         // BackGround Process
-     sendCampaignEmailsInBackground({
-        campaign,
-        emails,
-        user,
-      }).catch((err) => {
-  console.error("Background email error:", err);
-});
+//      sendCampaignEmailsInBackground({
+//         campaign,
+//         emails,
+//         user,
+//       }).catch((err) => {
+//   console.error("Background email error:", err);
+// });
+
+      await campaignQueue.add("start-campaign", {
+        campaignId : campaign.id,
+        userId: req.user.id,
+      },
+    {
+      delay : 30000,
+    });
 
 
 
       return res.status(200).json({
         success: true,
-        message: "Emails Seding in Progress... , Check after few seconds.",
+        message: "Campaign is added in the queue for sending emails. You will be notified when the emails are sent.",
       });
 
     }

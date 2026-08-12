@@ -146,6 +146,15 @@ export const getCampaignEmails = async ({ campaignId, userId }) => {
   });
 };
 
+export const getCampaignEmailCount = async ({ campaignId, userId }) => {
+  return prisma.campaignEmail.count({
+    where: {
+      campaignId,
+      userId,
+    },
+  });
+};
+
 export const getEmailById = async ({ emailId, userId }) => {
   return prisma.campaignEmail.findFirst({
     where: {
