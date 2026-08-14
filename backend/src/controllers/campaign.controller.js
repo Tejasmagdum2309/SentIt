@@ -84,6 +84,32 @@ export const getCampaignsController = async (req, res) => {
   }
 };
 
+export const getCampaignController = async (req, res) => {
+  try {
+    const { campaignId } = req.params;
+
+    const campaign = await getCampaignById({ id: campaignId });
+
+    if (!campaign || campaign.userId !== req.user.id) {
+      return res.status(404).json({
+        success: false,
+        message: "Campaign not found",
+      });
+    }
+
+    return res.status(200).json({
+      success: true,
+      message: "Campaign fetched successfully",
+      data: campaign,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      success: false,
+      message: error.message,
+    });
+  }
+};
+
 export const getCampaignStatsController = async (req, res) => {
   try {
     const stats = await getCampaignStatsByUserId(req.user.id);

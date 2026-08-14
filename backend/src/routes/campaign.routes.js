@@ -2,6 +2,7 @@ import { Router } from "express";
 import {
   createCampaignController,
   getCampaignsController,
+  getCampaignController,
   getCampaignStatsController,
   uploadCampaignFileController,
   updateCampaignController,
@@ -17,6 +18,8 @@ const router = Router();
 
 router.get("/", requireAuth, getCampaignsController);
 router.get("/stats", requireAuth, getCampaignStatsController);
+// Must stay below "/stats" so that path is not matched as a campaign id.
+router.get("/:campaignId", requireAuth, getCampaignController);
 router.post("/", requireAuth, createCampaignController);
 router.patch("/:campaignId", requireAuth, updateCampaignController);
 router.post("/:campaignId/upload", uploadLimiter , requireAuth, handleCampaignUpload, uploadCampaignFileController);
