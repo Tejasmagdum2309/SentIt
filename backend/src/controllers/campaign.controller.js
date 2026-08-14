@@ -7,7 +7,7 @@ import {
   updateCampaignById,
   getCampaignEmails,
   getEmailById,
-  getSentCampaignCount,
+  getDispatchedCampaignCount,
   updateCampaignEmailById, 
   getCampaignEmailCount
 } from "../services/campaign.service.js";
@@ -18,7 +18,13 @@ import {sendCampaignEmailsInBackground} from "../services/email.service.js";
 
 import {sendEmail} from "../services/email.service.js";
 import { campaignQueue } from "../queues/campaign.queue.js";
-import { delay } from "bullmq";
+import {
+  getUtcDayBounds,
+  isValidTimeZone,
+  parseScheduledAtToUtc,
+} from "../utils/schedule.util.js";
+
+const MAX_CAMPAIGNS_PER_DAY = 2;
 
 export const getCampaignsController = async (req, res) => {
   try {
@@ -325,13 +331,20 @@ export const getCampaignEmailController = async (req, res) => {
 export const sendCampaignEmailController = async (req, res) => {
     try {
       const { campaignId } = req.params;
+      const { publishNow, scheduledAt, timeZone } = req.body;
 
+      if (typeof publishNow !== "boolean") {
+        return res.status(400).json({
+          success: false,
+          message: "publishNow is required and must be a boolean",
+        });
+      }
 
        const campaign = await getCampaignById({
         id : campaignId,
       });
 
-      if (!campaign) {
+      if (!campaign || campaign.userId !== req.user.id) {
         return res.status(404).json({
           success: false,
           message: "Campaign not found",
@@ -345,15 +358,63 @@ export const sendCampaignEmailController = async (req, res) => {
         });
       }
 
-      // Chk if from yesterdays current date to current time did we sent alredt 2 campaigns...
-      const yesterday = new Date(new Date - (24 * 60 * 60 * 1000));
+      // Immediate sends dispatch now, scheduled ones dispatch at the requested
+      // wall-clock time converted from the sender's time zone into UTC.
+      let scheduledAtUtc = null;
 
-      const sentCampaignsCount = await getSentCampaignCount({ id: req.user.id, since: yesterday });
-     
-      if (sentCampaignsCount >= 2) {
+      if (!publishNow) {
+        if (!scheduledAt || !timeZone) {
+          return res.status(400).json({
+            success: false,
+            message: "scheduledAt and timeZone are required For non publishNow campaigns",
+          });
+        }
+
+        if (!isValidTimeZone(timeZone)) {
+          return res.status(400).json({
+            success: false,
+            message: `timeZone "${timeZone}" is not a valid IANA time zone`,
+          });
+        }
+
+        scheduledAtUtc = parseScheduledAtToUtc({ scheduledAt, timeZone });
+
+        if (!scheduledAtUtc) {
+          return res.status(400).json({
+            success: false,
+            message: "scheduledAt must be a wall-clock time like 2026-08-20T10:00",
+          });
+        }
+
+        if (scheduledAtUtc.getTime() <= Date.now()) {
+          return res.status(400).json({
+            success: false,
+            message: "scheduledAt must be in the future",
+          });
+        }
+      }
+
+      const dispatchAt = scheduledAtUtc ?? new Date();
+
+      // The quota is one bucket per UTC calendar day, so an immediate send
+      // counts against today while a scheduled send counts against its own day.
+      const { dayStart, dayEnd } = getUtcDayBounds(dispatchAt);
+
+      // Both already sent and still scheduled campaigns count against the quota,
+      // so a user cannot queue up more than the limit for the same day either.
+      const dispatchedCampaignsCount = await getDispatchedCampaignCount({
+        userId: req.user.id,
+        from: dayStart,
+        to: dayEnd,
+        excludeCampaignId: campaign.id,
+      });
+
+      if (dispatchedCampaignsCount >= MAX_CAMPAIGNS_PER_DAY) {
         return res.status(429).json({
           success: false,
-          message: "You have already sent 2 campaigns in last 24 hours...",
+          message: publishNow
+            ? `You have already sent or scheduled ${MAX_CAMPAIGNS_PER_DAY} campaigns today...`
+            : `You have already sent or scheduled ${MAX_CAMPAIGNS_PER_DAY} campaigns for that day...`,
         });
       }
 
@@ -369,37 +430,52 @@ export const sendCampaignEmailController = async (req, res) => {
         });
       }
 
-    //  const user = await getUserByEmailWithRefreshToken(req.user.email);
+      // A fixed job id keeps one campaign to one job, so re-sending or
+      // rescheduling replaces the pending job instead of adding a second one.
+      const jobId = `campaign-${campaign.id}`;
+      const existingJob = await campaignQueue.getJob(jobId);
 
-    //   if (!user) {
-    //     return res.status(404).json({
-    //       success: false,
-    //       message: "User not found",
-    //     });
-    //   }
-      
-        // BackGround Process
-//      sendCampaignEmailsInBackground({
-//         campaign,
-//         emails,
-//         user,
-//       }).catch((err) => {
-//   console.error("Background email error:", err);
-// });
+      if (existingJob) {
+        const existingJobState = await existingJob.getState();
+
+        if (existingJobState === "active") {
+          return res.status(409).json({
+            success: false,
+            message: "Campaign is already being sent",
+          });
+        }
+
+        await existingJob.remove();
+      }
+
+      await updateCampaignById({
+        id: campaign.id,
+        userId: req.user.id,
+        campaignStatus: "SCHEDULED",
+        scheduledAt: scheduledAtUtc,
+        timeZone: publishNow ? null : timeZone,
+      });
 
       await campaignQueue.add("start-campaign", {
         campaignId : campaign.id,
         userId: req.user.id,
       },
     {
-      delay : 30000,
+      jobId,
+      delay : publishNow ? 0 : Math.max(scheduledAtUtc.getTime() - Date.now(), 0),
     });
-
-
 
       return res.status(200).json({
         success: true,
-        message: "Campaign is added in the queue for sending emails. You will be notified when the emails are sent.",
+        message: publishNow
+          ? "Campaign is added in the queue for sending emails. You will be notified when the emails are sent."
+          : "Campaign scheduled successfully. Emails will be sent at the scheduled time.",
+        data: {
+          campaignId: campaign.id,
+          publishNow,
+          scheduledAt: scheduledAtUtc ? scheduledAtUtc.toISOString() : null,
+          timeZone: publishNow ? null : timeZone,
+        },
       });
 
     }

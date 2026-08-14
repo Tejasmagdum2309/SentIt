@@ -12,6 +12,8 @@ const publicCampaignSelect = {
   campaignStatus: true,
   emailSubject: true,
   emailBody: true,
+  scheduledAt: true,
+  timeZone: true,
   userId: true,
   createdAt: true,
   updatedAt: true,
@@ -83,6 +85,35 @@ export const getSentCampaignCount = ({ id, since }) => {
   });
 };
 
+/**
+ * Counts campaigns whose dispatch time falls inside the given window, so both
+ * already sent and still scheduled campaigns count against the daily quota.
+ * SENT campaigns have no sentAt column, so updatedAt stands in for it.
+ */
+export const getDispatchedCampaignCount = ({
+  userId,
+  from,
+  to,
+  excludeCampaignId,
+}) => {
+  return prisma.campaign.count({
+    where: {
+      userId,
+      ...(excludeCampaignId ? { id: { not: excludeCampaignId } } : {}),
+      OR: [
+        {
+          campaignStatus: "SENT",
+          updatedAt: { gte: from, lte: to },
+        },
+        {
+          campaignStatus: "SCHEDULED",
+          scheduledAt: { gte: from, lte: to },
+        },
+      ],
+    },
+  });
+};
+
 export const createCampaign = async ({
   campaignName,
   campaignDescription,
@@ -106,6 +137,8 @@ export const updateCampaignById = async ({
   emailSubject,
   emailBody,
   campaignStatus,
+  scheduledAt,
+  timeZone,
 }) => {
   const existingCampaign = await prisma.campaign.findFirst({
     where: {
@@ -128,6 +161,8 @@ export const updateCampaignById = async ({
       ...(emailSubject !== undefined ? { emailSubject } : {}),
       ...(emailBody !== undefined ? { emailBody } : {}),
       ...(campaignStatus !== undefined ? { campaignStatus } : {}),
+      ...(scheduledAt !== undefined ? { scheduledAt } : {}),
+      ...(timeZone !== undefined ? { timeZone } : {}),
     },
     select: publicCampaignSelect,
   });
