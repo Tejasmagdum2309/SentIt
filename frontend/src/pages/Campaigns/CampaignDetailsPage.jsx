@@ -25,12 +25,12 @@ import LoadingButton from '../../components/common/LoadingButton';
 import HighlightedTemplate from '../../components/common/HighlightedTemplate';
 import EditCampaignDialog from '../../components/campaigns/EditCampaignDialog';
 import EmailPreviewDialog from '../../components/campaigns/EmailPreviewDialog';
+import SendCampaignDialog from '../../components/campaigns/SendCampaignDialog';
 import VariablesPreview from '../../components/campaigns/VariablesPreview';
 import {
   getApiErrorMessage,
+  getCampaignById,
   getCampaignEmails,
-  getCampaigns,
-  sendCampaign,
   sendCampaignEmail,
   uploadCampaignFile,
 } from '../../api/campaigns';
@@ -42,27 +42,27 @@ function CampaignDetailsPage() {
   const [campaign, setCampaign] = useState(null);
   const [emails, setEmails] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [sendingAll, setSendingAll] = useState(false);
   const [sendingEmailId, setSendingEmailId] = useState(null);
   const [selectedFile, setSelectedFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const [editOpen, setEditOpen] = useState(false);
+  const [sendOpen, setSendOpen] = useState(false);
   const [previewRecipient, setPreviewRecipient] = useState(null);
 
   const loadData = async () => {
     try {
       setLoading(true);
-      const [campaignsResult, campaignEmails] = await Promise.all([
-        getCampaigns({ page: 1, limit: 100 }),
+      const [campaignData, campaignEmails] = await Promise.all([
+        getCampaignById(campaignId),
         getCampaignEmails(campaignId),
       ]);
 
-      const found =
-        campaignsResult.data.find((item) => item.id === campaignId) || null;
-      setCampaign(found);
+      setCampaign(campaignData);
       setEmails(campaignEmails);
     } catch (error) {
       toast.error(getApiErrorMessage(error, 'Failed to load campaign'));
+      setCampaign(null);
+      setEmails([]);
     } finally {
       setLoading(false);
     }
@@ -73,6 +73,7 @@ function CampaignDetailsPage() {
   }, [campaignId]);
 
   const isDraft = campaign?.campaignStatus === 'DRAFT';
+  const isScheduled = campaign?.campaignStatus === 'SCHEDULED';
   const hasRecipients = emails.length > 0;
   const canUploadSheet = isDraft && !hasRecipients;
 
@@ -126,19 +127,6 @@ function CampaignDetailsPage() {
       toast.error(getApiErrorMessage(error, 'Failed to upload file'));
     } finally {
       setUploading(false);
-    }
-  };
-
-  const handleSendAll = async () => {
-    setSendingAll(true);
-    try {
-      const result = await sendCampaign(campaignId);
-      toast.success(result?.message || 'Campaign send started');
-      await loadData();
-    } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Failed to send campaign'));
-    } finally {
-      setSendingAll(false);
     }
   };
 
@@ -230,6 +218,22 @@ function CampaignDetailsPage() {
                 {campaign.campaignDescription}
               </Typography>
             )}
+            {campaign.scheduledAt && (
+              <Typography variant="body2" sx={{ mt: 0.5, color: 'text.primary' }}>
+                Scheduled At:{' '}
+                {new Date(campaign.scheduledAt).toLocaleString('en-US', {
+                  timeZone: campaign.timeZone || 'UTC',
+                  dateStyle: 'medium',
+                  timeStyle: 'short',
+                })}
+                {campaign.timeZone ? ` (${campaign.timeZone})` : ' (UTC)'}
+              </Typography>
+            )}
+            {!campaign.scheduledAt && campaign.timeZone && (
+              <Typography variant="body2" sx={{ mt: 0.5, color: 'text.primary' }}>
+                Timezone: {campaign.timeZone}
+              </Typography>
+            )}
           </Box>
 
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
@@ -245,14 +249,22 @@ function CampaignDetailsPage() {
               </Button>
             )}
             {isDraft && hasRecipients && (
-              <LoadingButton
+              <Button
                 variant="outlined"
-                loading={sendingAll}
-                onClick={handleSendAll}
+                onClick={() => setSendOpen(true)}
                 sx={{ borderRadius: '8px' }}
               >
                 Send Campaign
-              </LoadingButton>
+              </Button>
+            )}
+            {isScheduled && (
+              <Button
+                variant="outlined"
+                disabled
+                sx={{ borderRadius: '8px' }}
+              >
+                Scheduled
+              </Button>
             )}
           </Box>
         </Box>
@@ -442,10 +454,16 @@ function CampaignDetailsPage() {
 
      
     </Paper>
-     <EditCampaignDialog
+      <EditCampaignDialog
         open={editOpen}
         campaign={campaign}
         onClose={() => setEditOpen(false)}
+        onSuccess={loadData}
+      />
+      <SendCampaignDialog
+        open={sendOpen}
+        campaignId={campaignId}
+        onClose={() => setSendOpen(false)}
         onSuccess={loadData}
       />
       <EmailPreviewDialog

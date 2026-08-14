@@ -9,6 +9,10 @@ const statusStyles = {
     backgroundColor: '#E8F0FE',
     color: '#1976D2',
   },
+  SCHEDULED: {
+    backgroundColor: '#F3E8FF',
+    color: '#7C3AED',
+  },
   PENDING: {
     backgroundColor: '#FEF7E0',
     color: '#C78300',

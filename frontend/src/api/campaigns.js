@@ -97,13 +97,18 @@ export async function uploadCampaignFile(campaignId, file) {
   return response.data?.data;
 }
 
+export async function getCampaignById(campaignId) {
+  const response = await api.get(`/campaigns/${campaignId}`);
+  return response.data?.data || null;
+}
+
 export async function getCampaignEmails(campaignId) {
   const response = await api.get(`/campaigns/${campaignId}/emails`);
   return response.data?.data || [];
 }
 
-export async function sendCampaign(campaignId) {
-  const response = await api.post(`/campaigns/${campaignId}/send`);
+export async function sendCampaign(campaignId, payload) {
+  const response = await api.post(`/campaigns/${campaignId}/send`, payload);
   return response.data;
 }
 
