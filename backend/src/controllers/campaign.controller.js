@@ -20,7 +20,6 @@ import {sendEmail} from "../services/email.service.js";
 import { campaignQueue } from "../queues/campaign.queue.js";
 import {
   getUtcDayBounds,
-  isValidTimeZone,
   parseScheduledAtToUtc,
 } from "../utils/schedule.util.js";
 
@@ -28,33 +27,7 @@ const MAX_CAMPAIGNS_PER_DAY = 2;
 
 export const getCampaignsController = async (req, res) => {
   try {
-    const rawPage = req.query.page;
-    const rawLimit = req.query.limit;
-    const status = req.query.status;
-
-    const page = rawPage !== undefined ? parseInt(rawPage, 10) : 1;
-    const limit = rawLimit !== undefined ? parseInt(rawLimit, 10) : 10;
-
-    if (Number.isNaN(page) || page < 1) {
-      return res.status(400).json({
-        success: false,
-        message: "page must be a number greater than or equal to 1",
-      });
-    }
-
-    if (Number.isNaN(limit) || limit < 1 || limit > 100) {
-      return res.status(400).json({
-        success: false,
-        message: "limit must be a number between 1 and 100",
-      });
-    }
-
-    if (status && !["DRAFT", "SENT"].includes(status)) {
-      return res.status(400).json({
-        success: false,
-        message: 'status must be "DRAFT" or "SENT"',
-      });
-    }
+    const { page, limit, status } = req.validated.query;
 
     const { campaigns, total } = await getCampaignsByUserId({
       userId: req.user.id,
@@ -86,7 +59,7 @@ export const getCampaignsController = async (req, res) => {
 
 export const getCampaignController = async (req, res) => {
   try {
-    const { campaignId } = req.params;
+    const { campaignId } = req.validated.params;
 
     const campaign = await getCampaignById({ id: campaignId });
 
@@ -129,14 +102,7 @@ export const getCampaignStatsController = async (req, res) => {
 
 export const createCampaignController = async (req, res) => {
   try {
-    const { campaignName, campaignDescription } = req.body;
-
-    if (!campaignName) {
-      return res.status(400).json({
-        success: false,
-        message: "campaignName is required",
-      });
-    }
+    const { campaignName, campaignDescription } = req.validated.body;
 
     const campaign = await createCampaign({
       campaignName,
@@ -159,8 +125,8 @@ export const createCampaignController = async (req, res) => {
 
 export const updateCampaignController = async (req, res) => {
   try {
-    const { campaignId : id } = req.params;
-    const { campaignName, campaignDescription , emailSubject , emailBody } = req.body;
+    const { campaignId : id } = req.validated.params;
+    const { campaignName, campaignDescription , emailSubject , emailBody } = req.validated.body;
 
     const campaign = await updateCampaignById({
       id,
@@ -194,7 +160,7 @@ export const updateCampaignController = async (req, res) => {
 
 export const uploadCampaignFileController = async (req, res) => {
   try {
-    const { campaignId } = req.params;
+    const { campaignId } = req.validated.params;
     // Issue will occuer here will fix in next release --- Tejas
     const parsedFile = await parseCampaignUploadFile({
       campaignId,
@@ -232,7 +198,7 @@ export const uploadCampaignFileController = async (req, res) => {
 
 export const getCampaignEmailsController = async (req, res) => {
     try {
-      const { campaignId } = req.params;
+      const { campaignId } = req.validated.params;
 
   
       const emails = await getCampaignEmails({
@@ -263,7 +229,7 @@ export const getCampaignEmailsController = async (req, res) => {
 
 export const getCampaignEmailController = async (req, res) => {
   try {
-    const { campaignId, emailId } = req.params;
+    const { campaignId, emailId } = req.validated.params;
 
     // 1. Get campaign
     const campaign = await getCampaignById({ id: campaignId });
@@ -356,15 +322,8 @@ export const getCampaignEmailController = async (req, res) => {
 
 export const sendCampaignEmailController = async (req, res) => {
     try {
-      const { campaignId } = req.params;
-      const { publishNow, scheduledAt, timeZone } = req.body;
-
-      if (typeof publishNow !== "boolean") {
-        return res.status(400).json({
-          success: false,
-          message: "publishNow is required and must be a boolean",
-        });
-      }
+      const { campaignId } = req.validated.params;
+      const { publishNow, scheduledAt, timeZone } = req.validated.body;
 
        const campaign = await getCampaignById({
         id : campaignId,
@@ -389,26 +348,14 @@ export const sendCampaignEmailController = async (req, res) => {
       let scheduledAtUtc = null;
 
       if (!publishNow) {
-        if (!scheduledAt || !timeZone) {
-          return res.status(400).json({
-            success: false,
-            message: "scheduledAt and timeZone are required For non publishNow campaigns",
-          });
-        }
-
-        if (!isValidTimeZone(timeZone)) {
-          return res.status(400).json({
-            success: false,
-            message: `timeZone "${timeZone}" is not a valid IANA time zone`,
-          });
-        }
-
+        // Yup guarantees the shape and the zone, but a real calendar date is
+        // only known once moment parses it, so "2026-02-31T10:00" fails here.
         scheduledAtUtc = parseScheduledAtToUtc({ scheduledAt, timeZone });
 
         if (!scheduledAtUtc) {
           return res.status(400).json({
             success: false,
-            message: "scheduledAt must be a wall-clock time like 2026-08-20T10:00",
+            message: "scheduledAt must be a valid date and time like 2026-08-20T10:00",
           });
         }
 
