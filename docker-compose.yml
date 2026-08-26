@@ -1,0 +1,49 @@
+services:
+  redis:
+    image: redis:latest
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data  
+
+  postgres:
+    image: postgres:17
+    ports:
+      - "5433:5432"    
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: sentit
+    volumes:
+      - postgres_data:/var/lib/postgresql/data    
+
+  backend:
+    build:
+      context: ./backend
+    ports:
+      - "5002:5002"  
+    env_file:
+      - ./backend/.env.docker
+    depends_on:
+      - postgres
+      - redis
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"    
+           
+  frontend:
+    build:
+      context: ./frontend
+    ports:
+      - "5173:80" 
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+volumes:
+  postgres_data:
+  redis_data:
