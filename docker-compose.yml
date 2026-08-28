@@ -32,6 +32,21 @@ services:
       options:
         max-size: "10m"
         max-file: "3"    
+
+  worker:
+    build:
+      context: ./backend
+    env_file:
+      - ./backend/.env.docker
+    depends_on:
+      - postgres
+      - redis
+    command: npm run worker
+    logging:
+      driver: json-file
+      options:
+        max-size: "10m"
+        max-file: "3"   
            
   frontend:
     build:

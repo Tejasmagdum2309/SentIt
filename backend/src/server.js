@@ -1,6 +1,6 @@
 import "./config/env.js";
 import app from "./app.js";
-import { campaignWorker } from "./workers/campaign.worker.js";
+// import { campaignWorker } from "./workers/campaign.worker.js";
 
 const PORT = process.env.PORT || 5000;
 
