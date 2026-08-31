@@ -23,6 +23,8 @@ services:
       - postgres
       - redis
     command: npm start
+    ports:
+      - "127.0.0.1:5002:5002"
 
   worker:
     build:
@@ -38,7 +40,7 @@ services:
     build:
       context: ./frontend
     ports:
-      - "80:80"
+      - "127.0.0.1:8080:80"
     depends_on:
       - backend
 
