@@ -1,0 +1,23 @@
+name: Deploy SentIt
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Deploy to production VM
+        uses: appleboy/ssh-action@v1
+        with:
+          host: 8.234.99.172
+          username: magdumtej1008
+          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          script: |
+            cd /home/magdumtej1008/SentIt
+            git fetch origin
+            git reset --hard origin/main
+            docker compose -f docker-compose.prod.yml up -d --build
