@@ -10,15 +10,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Prepare SSH key
+        run: |
+          mkdir -p ~/.ssh
+          printf '%b' "${{ secrets.VM_SSH_PRIVATE_KEY }}" | tr -d '\r' > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+
       - name: Deploy to production VM
         uses: appleboy/ssh-action@v1
         with:
           host: 8.234.99.172
           username: magdumtej1008
-          key: ${{ secrets.VM_SSH_PRIVATE_KEY }}
+          key_path: ~/.ssh/deploy_key
           script: |
             cd /home/magdumtej1008/SentIt
             git fetch origin
             git reset --hard origin/main
-            docker compose -f docker-compose.prod.yml up -d --
+            docker compose -f docker-compose.prod.yml up -d
             
