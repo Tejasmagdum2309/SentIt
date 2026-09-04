@@ -3,6 +3,7 @@ import { Box, CircularProgress } from '@mui/material';
 import useAuth from '../hooks/useAuth';
 import AuthLayout from '../layouts/AuthLayout';
 import DashboardLayout from '../layouts/DashboardLayout';
+import LandingPage from '../pages/Landing/LandingPage';
 import LoginPage from '../pages/Login/LoginPage';
 import AuthCallbackPage from '../pages/Auth/AuthCallbackPage';
 import DashboardPage from '../pages/Dashboard/DashboardPage';
@@ -76,6 +77,15 @@ function AppRoutes() {
       <Route path="/privacy" element={<PrivacyPage />} />
 
       <Route
+        path="/"
+        element={
+          <PublicRoute>
+            <LandingPage />
+          </PublicRoute>
+        }
+      />
+
+      <Route
         element={
           <PublicRoute>
             <AuthLayout />
@@ -101,7 +111,7 @@ function AppRoutes() {
         <Route path="/nextPhase" element={<NextPhasePage />} />
       </Route>
 
-      <Route path="*" element={<Navigate to="/dashboard" replace />} />
+      <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>
   );
 }

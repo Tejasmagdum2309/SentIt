@@ -1,9 +1,10 @@
 import { Link as RouterLink } from 'react-router-dom';
 import { Box, Button, Card, CardContent, Link, Typography } from '@mui/material';
+import { startGoogleLogin } from '../../utils/googleAuth';
 
 function LoginPage() {
   const handleGoogleLogin = () => {
-    window.location.href = import.meta.env.VITE_GOOGLE_AUTH_URL;
+    startGoogleLogin();
   };
 
   return (
